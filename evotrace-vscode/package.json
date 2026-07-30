@@ -1,0 +1,59 @@
+{
+  "name": "evotrace-vscode",
+  "displayName": "EvoTrace — 代码演化追踪",
+  "description": "在 VS Code 中查看任意文件的历史演化记录和 AI 变更摘要",
+  "version": "0.1.0",
+  "publisher": "evotrace",
+  "engines": { "vscode": "^1.82.0" },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "evotrace.showFileHistory",
+        "title": "EvoTrace: 查看文件演化历史"
+      },
+      {
+        "command": "evotrace.showProjectDashboard",
+        "title": "EvoTrace: 打开项目面板"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "evotrace.showFileHistory",
+          "group": "navigation",
+          "when": "resourceScheme == file"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "evotrace.showFileHistory",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "EvoTrace",
+      "properties": {
+        "evotrace.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:8080",
+          "description": "EvoTrace 服务端地址"
+        },
+        "evotrace.defaultProject": {
+          "type": "string",
+          "default": "mall",
+          "description": "默认项目标识"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.82.0"
+  }
+}
