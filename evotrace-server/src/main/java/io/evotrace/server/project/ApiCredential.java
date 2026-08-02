@@ -26,6 +26,10 @@ public class ApiCredential {
     @Column(name = "secret_hash", nullable = false, length = 128)
     private String secretHash;
 
+    /** Plaintext secret used to verify HMAC request signatures (GitHub-style). */
+    @Column(name = "hmac_key", length = 128)
+    private String hmacKey;
+
     @Column(nullable = false, length = 32)
     private String scope = "INGEST";
 
@@ -49,6 +53,9 @@ public class ApiCredential {
 
     public String getSecretHash() { return secretHash; }
     public void setSecretHash(String secretHash) { this.secretHash = secretHash; }
+
+    public String getHmacKey() { return hmacKey; }
+    public void setHmacKey(String hmacKey) { this.hmacKey = hmacKey; }
 
     public String getScope() { return scope; }
     public void setScope(String scope) { this.scope = scope; }

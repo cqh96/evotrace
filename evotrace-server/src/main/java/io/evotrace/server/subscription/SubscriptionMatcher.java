@@ -41,7 +41,8 @@ public class SubscriptionMatcher {
 
         for (var rule : rules) {
             try {
-                String filterJson = (String) rule.get("filter_json");
+                // pgjdbc returns jsonb columns as PGobject, not String
+                String filterJson = String.valueOf(rule.get("filter_json"));
                 Map<String, Object> filter = mapper.readValue(filterJson, Map.class);
 
                 boolean matched = true;

@@ -89,12 +89,13 @@ public class DataSeeder implements ApplicationRunner {
                     """, e[0], e[7]);
         }
         // Advance sequences to avoid conflicts with GENERATED ALWAYS AS IDENTITY
-        jdbc.update("SELECT setval('workspace_id_seq', (SELECT COALESCE(max(id), 1) FROM workspace))");
-        jdbc.update("SELECT setval('project_id_seq', (SELECT COALESCE(max(id), 1) FROM project))");
-        jdbc.update("SELECT setval('application_id_seq', (SELECT COALESCE(max(id), 1) FROM application))");
-        jdbc.update("SELECT setval('iteration_id_seq', (SELECT COALESCE(max(id), 1) FROM iteration))");
-        jdbc.update("SELECT setval('release_id_seq', (SELECT COALESCE(max(id), 1) FROM release))");
-        jdbc.update("SELECT setval('sys_user_id_seq', (SELECT COALESCE(max(id), 1) FROM sys_user))");
+        // NOTE: use queryForObject, not update() — PostgreSQL JDBC rejects SELECT via executeUpdate
+        jdbc.queryForObject("SELECT setval('workspace_id_seq', (SELECT COALESCE(max(id), 1) FROM workspace))", Long.class);
+        jdbc.queryForObject("SELECT setval('project_id_seq', (SELECT COALESCE(max(id), 1) FROM project))", Long.class);
+        jdbc.queryForObject("SELECT setval('application_id_seq', (SELECT COALESCE(max(id), 1) FROM application))", Long.class);
+        jdbc.queryForObject("SELECT setval('iteration_id_seq', (SELECT COALESCE(max(id), 1) FROM iteration))", Long.class);
+        jdbc.queryForObject("SELECT setval('release_id_seq', (SELECT COALESCE(max(id), 1) FROM release))", Long.class);
+        jdbc.queryForObject("SELECT setval('sys_user_id_seq', (SELECT COALESCE(max(id), 1) FROM sys_user))", Long.class);
 
         log.info("seeded demo project 'mall' with {} events", events.length);
     }

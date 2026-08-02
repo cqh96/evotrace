@@ -7,11 +7,9 @@ import io.evotrace.protocol.payload.CodeCommitPayload;
 import io.evotrace.server.iteration.Iteration;
 import io.evotrace.server.iteration.IterationRepository;
 import io.evotrace.server.project.ProjectRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -19,13 +17,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Handles CODE_COMMIT and MR_MERGED events: persists change_event + change_file rows,
- * extracts iteration key from commit message, and dispatches AI summary task.
+ * Handles CODE_COMMIT events: persists change_event + change_file rows,
+ * extracts iteration key from commit message, and dispatches AI tasks
+ * (summary, and code review when enabled).
  */
 @Component
-public class CommitHandler implements ChangeEventHandler {
-
-    private static final Logger log = LoggerFactory.getLogger(CommitHandler.class);
+public class CommitHandler extends SimpleEventHandler {
 
     /** Matches common requirement key patterns: REQ-1234, JIRA-4567, #789 */
     private static final Pattern ITERATION_KEY_PATTERN =
@@ -34,20 +31,21 @@ public class CommitHandler implements ChangeEventHandler {
 
     private static final ObjectMapper mapper = new ObjectMapper();
 
-    private final ChangeEventRepository changeEventRepository;
     private final ChangeFileRepository changeFileRepository;
-    private final ProjectRepository projectRepository;
     private final IterationRepository iterationRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
+
+    /** Auto code review on every commit — off by default (AI cost). */
+    @Value("${evotrace.code-review.auto-enabled:false}")
+    private boolean codeReviewAutoEnabled;
 
     public CommitHandler(ChangeEventRepository changeEventRepository,
                          ChangeFileRepository changeFileRepository,
                          ProjectRepository projectRepository,
                          IterationRepository iterationRepository,
                          KafkaTemplate<String, String> kafkaTemplate) {
-        this.changeEventRepository = changeEventRepository;
+        super(changeEventRepository, projectRepository);
         this.changeFileRepository = changeFileRepository;
-        this.projectRepository = projectRepository;
         this.iterationRepository = iterationRepository;
         this.kafkaTemplate = kafkaTemplate;
     }
@@ -58,63 +56,36 @@ public class CommitHandler implements ChangeEventHandler {
     }
 
     @Override
-    @Transactional
-    public String handle(Envelope envelope) {
-        // Idempotency: skip if already persisted
-        if (changeEventRepository.existsByIdempotencyKey(envelope.idempotencyKey())) {
-            log.info("duplicate event skipped: {}", envelope.idempotencyKey());
-            return envelope.eventId();
-        }
+    protected ChangeEvent buildEvent(Envelope envelope, Long projectId) {
+        ChangeEvent event = super.buildEvent(envelope, projectId);
+        event.setSummaryStatus("PENDING"); // AI summary task will fill it
 
         CodeCommitPayload payload = convertPayload(envelope.payload());
-
-        // Resolve project id
-        Long projectId = projectRepository.findByProjectKey(envelope.projectKey())
-                .map(p -> p.getId())
-                .orElseThrow(() -> new IllegalArgumentException("项目不存在: " + envelope.projectKey()));
-
-        // Persist change_event
-        ChangeEvent event = new ChangeEvent();
-        event.setProjectId(projectId);
-        event.setEventId(envelope.eventId());
-        event.setIdempotencyKey(envelope.idempotencyKey());
-        event.setEventType(envelope.eventType().name());
-        event.setBranch(payload.branch());
-        event.setCommitSha(payload.commitSha());
-        event.setAuthor(payload.authorName());
-        event.setBlobRef(envelope.blobRef());
-        event.setOccurredAt(envelope.occurredAt());
-        event.setSummaryStatus("PENDING");
-
-        // Link iteration by extracting key from commit message
         if (payload.message() != null) {
-            Long iterationId = resolveIteration(projectId, payload.message());
-            event.setIterationId(iterationId);
+            event.setIterationId(resolveIteration(projectId, payload.message()));
         }
+        return event;
+    }
 
-        changeEventRepository.save(event);
-
-        // Persist changed files
-        if (payload.files() != null) {
-            for (CodeCommitPayload.FileChange fc : payload.files()) {
-                ChangeFile file = new ChangeFile();
-                file.setEventId(event.getEventId());
-                file.setFilePath(fc.newPath() != null ? fc.newPath() : fc.oldPath());
-                file.setOldPath(fc.oldPath());
-                file.setChangeKind(fc.kind() != null ? fc.kind().name() : "MODIFIED");
-                file.setAddLines(fc.addLines());
-                file.setDelLines(fc.delLines());
-                file.setDiffBlobRef(fc.diffBlobRef());
-                changeFileRepository.save(file);
-            }
-        }
-
-        // Dispatch AI summary task
+    @Override
+    protected void postPersist(ChangeEvent event, Envelope envelope) {
+        persistFiles(event.getEventId(), convertPayload(envelope.payload()));
         dispatchAiTask(event);
+    }
 
-        log.info("commit persisted: eventId={} files={}", event.getEventId(),
-                payload.files() != null ? payload.files().size() : 0);
-        return event.getEventId();
+    private void persistFiles(String eventId, CodeCommitPayload payload) {
+        if (payload.files() == null) return;
+        for (CodeCommitPayload.FileChange fc : payload.files()) {
+            ChangeFile file = new ChangeFile();
+            file.setEventId(eventId);
+            file.setFilePath(fc.newPath() != null ? fc.newPath() : fc.oldPath());
+            file.setOldPath(fc.oldPath());
+            file.setChangeKind(fc.kind() != null ? fc.kind().name() : "MODIFIED");
+            file.setAddLines(fc.addLines());
+            file.setDelLines(fc.delLines());
+            file.setDiffBlobRef(fc.diffBlobRef());
+            changeFileRepository.save(file);
+        }
     }
 
     private Long resolveIteration(Long projectId, String message) {
@@ -136,6 +107,16 @@ public class CommitHandler implements ChangeEventHandler {
                     "eventType", event.getEventType()
             );
             kafkaTemplate.send("evo.tasks.ai", event.getEventId(), mapper.writeValueAsString(task));
+
+            if (codeReviewAutoEnabled) {
+                Map<String, Object> reviewTask = Map.of(
+                        "taskType", "CODE_REVIEW",
+                        "eventId", event.getEventId(),
+                        "projectId", event.getProjectId()
+                );
+                kafkaTemplate.send("evo.tasks.ai", event.getEventId() + "#review",
+                        mapper.writeValueAsString(reviewTask));
+            }
         } catch (Exception e) {
             log.error("failed to dispatch AI task for event {}", event.getEventId(), e);
         }

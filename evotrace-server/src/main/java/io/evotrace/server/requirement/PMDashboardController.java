@@ -120,14 +120,15 @@ public class PMDashboardController {
         return Result.ok(testEngine.recommend(projectId, fromVersion, toVersion));
     }
 
-    /** QA: run quality gate check */
+    /** QA: run quality gate check（可选绑定本轮测试计划 planId） */
     @PostMapping("/quality-gate/check")
     public Result<Map<String, Object>> qualityGateCheck(@RequestParam String projectKey,
                                                           @RequestParam String targetVersion,
-                                                          @RequestParam(defaultValue = "PM") String checkedBy) {
+                                                          @RequestParam(defaultValue = "PM") String checkedBy,
+                                                          @RequestParam(required = false) Long planId) {
         Long projectId = jdbc.queryForObject(
                 "SELECT id FROM project WHERE project_key = ?", Long.class, projectKey);
-        return Result.ok(qualityGateChecker.check(projectId, targetVersion, checkedBy));
+        return Result.ok(qualityGateChecker.check(projectId, targetVersion, checkedBy, planId));
     }
 
     /** QA: quality gate history */
@@ -169,6 +170,35 @@ public class PMDashboardController {
                                          @RequestParam String changeEventId,
                                          @RequestParam(defaultValue = "FIX") String linkType) {
         bugTraceService.link(bugId, changeEventId, linkType);
+        return Result.ok(null);
+    }
+
+    /** QA: 缺陷状态流转（状态机校验 + Jira 推送） */
+    @PutMapping("/bugs/{bugId}/transition")
+    public Result<Void> transitionBug(@PathVariable Long bugId,
+                                      @RequestBody Map<String, Object> body) {
+        bugTraceService.transition(bugId, String.valueOf(body.get("toStatus")),
+                body.get("fixedVersion") != null ? body.get("fixedVersion").toString() : null);
+        return Result.ok(null);
+    }
+
+    /** QA: 缺陷详情（含关联用例 + 变更追溯） */
+    @GetMapping("/bugs/{bugId}/detail")
+    public Result<Map<String, Object>> bugDetail(@PathVariable Long bugId) {
+        return Result.ok(bugTraceService.detail(bugId));
+    }
+
+    /** QA: 缺陷关联测试用例 */
+    @PostMapping("/bugs/{bugId}/test-cases")
+    public Result<Void> linkBugTestCase(@PathVariable Long bugId,
+                                        @RequestBody Map<String, Object> body) {
+        bugTraceService.linkCase(bugId, ((Number) body.get("testCaseId")).longValue());
+        return Result.ok(null);
+    }
+
+    @DeleteMapping("/bugs/{bugId}/test-cases/{testCaseId}")
+    public Result<Void> unlinkBugTestCase(@PathVariable Long bugId, @PathVariable Long testCaseId) {
+        bugTraceService.unlinkCase(bugId, testCaseId);
         return Result.ok(null);
     }
 

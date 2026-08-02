@@ -1,36 +1,38 @@
 package io.evotrace.server.change;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.evotrace.protocol.envelope.Envelope;
 import io.evotrace.protocol.envelope.EventType;
 import io.evotrace.server.application.Application;
 import io.evotrace.server.application.ApplicationRepository;
 import io.evotrace.server.project.ProjectRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Map;
 
 /**
- * Handles INVENTORY_REPORT events: creates or updates the application record
- * and persists the inventory snapshot as change events.
- * The actual snapshot diff logic (snapshot_item + snapshot_item_ref) is
- * triggered asynchronously by the snapshot engine (M2).
+ * Handles INVENTORY_REPORT events: creates or updates the application record,
+ * persists the inventory as a change event for timeline visibility, and writes
+ * the payload (apis/dependencies/configs/ddl) to {@code inventory_report} —
+ * the data source for the snapshot engine.
  */
 @Component
-public class InventoryReportHandler implements ChangeEventHandler {
+public class InventoryReportHandler extends SimpleEventHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(InventoryReportHandler.class);
+    private static final ObjectMapper mapper = new ObjectMapper();
 
-    private final ChangeEventRepository changeEventRepository;
-    private final ProjectRepository projectRepository;
     private final ApplicationRepository applicationRepository;
+    private final JdbcTemplate jdbc;
 
     public InventoryReportHandler(ChangeEventRepository changeEventRepository,
                                   ProjectRepository projectRepository,
-                                  ApplicationRepository applicationRepository) {
-        this.changeEventRepository = changeEventRepository;
-        this.projectRepository = projectRepository;
+                                  ApplicationRepository applicationRepository,
+                                  JdbcTemplate jdbc) {
+        super(changeEventRepository, projectRepository);
         this.applicationRepository = applicationRepository;
+        this.jdbc = jdbc;
     }
 
     @Override
@@ -39,17 +41,7 @@ public class InventoryReportHandler implements ChangeEventHandler {
     }
 
     @Override
-    @Transactional
-    public String handle(Envelope envelope) {
-        if (changeEventRepository.existsByIdempotencyKey(envelope.idempotencyKey())) {
-            log.info("duplicate inventory report skipped: {}", envelope.idempotencyKey());
-            return envelope.eventId();
-        }
-
-        Long projectId = projectRepository.findByProjectKey(envelope.projectKey())
-                .map(p -> p.getId())
-                .orElseThrow(() -> new IllegalArgumentException("项目不存在: " + envelope.projectKey()));
-
+    protected ChangeEvent buildEvent(Envelope envelope, Long projectId) {
         // Upsert application record
         final String appKey = envelope.appKey() != null ? envelope.appKey() : "default";
         Application app = applicationRepository
@@ -68,19 +60,35 @@ public class InventoryReportHandler implements ChangeEventHandler {
         }
         applicationRepository.save(app);
 
-        // Persist as a change event for timeline visibility
-        ChangeEvent event = new ChangeEvent();
-        event.setProjectId(projectId);
+        ChangeEvent event = super.buildEvent(envelope, projectId);
         event.setAppId(app.getId());
-        event.setEventId(envelope.eventId());
-        event.setIdempotencyKey(envelope.idempotencyKey());
-        event.setEventType(envelope.eventType().name());
-        event.setAuthor("system");
-        event.setOccurredAt(envelope.occurredAt());
-        event.setSummaryStatus("DONE"); // inventory reports don't need AI summary
-        changeEventRepository.save(event);
+        return event;
+    }
 
-        log.info("inventory report persisted: project={} app={}", envelope.projectKey(), appKey);
-        return event.getEventId();
+    @Override
+    protected void postPersist(ChangeEvent event, Envelope envelope) {
+        persistInventoryReport(event.getProjectId(), event.getAppId(), envelope);
+    }
+
+    /** Persist the payload to inventory_report (consumed by the snapshot engine). */
+    private void persistInventoryReport(Long projectId, Long appId, Envelope envelope) {
+        try {
+            Map<String, Object> payload = envelope.payload() != null ? envelope.payload() : Map.of();
+            jdbc.update("""
+                    INSERT INTO inventory_report(project_id, app_id, event_id, base_commit, version,
+                        tech_stack, api_json, dependency_json, config_json, ddl_json, reported_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb, ?)
+                    ON CONFLICT (event_id) DO NOTHING
+                    """, projectId, appId, envelope.eventId(),
+                    payload.get("baseCommit"), payload.get("version"), payload.get("techStack"),
+                    mapper.writeValueAsString(payload.getOrDefault("apis", List.of())),
+                    mapper.writeValueAsString(payload.getOrDefault("dependencies", List.of())),
+                    mapper.writeValueAsString(payload.getOrDefault("configFingerprints", Map.of())),
+                    mapper.writeValueAsString(payload.getOrDefault("ddlStatements", List.of())),
+                    envelope.occurredAt());
+        } catch (Exception e) {
+            // Persisting the report must not fail the event pipeline
+            log.warn("failed to persist inventory_report for event {}: {}", envelope.eventId(), e.getMessage());
+        }
     }
 }

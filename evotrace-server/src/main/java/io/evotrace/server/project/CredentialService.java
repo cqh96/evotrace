@@ -49,9 +49,9 @@ public class CredentialService {
         String apiSecret = HexFormat.of().formatHex(secretBytes);
 
         jdbc.update("""
-                INSERT INTO api_credential(project_id, api_key, secret_hash)
-                VALUES ((SELECT id FROM project WHERE project_key = ?), ?, ?)
-                """, projectKey, apiKey, passwordEncoder.encode(apiSecret));
+                INSERT INTO api_credential(project_id, api_key, secret_hash, hmac_key)
+                VALUES ((SELECT id FROM project WHERE project_key = ?), ?, ?, ?)
+                """, projectKey, apiKey, passwordEncoder.encode(apiSecret), apiSecret);
 
         return Map.of("apiKey", apiKey, "apiSecret", apiSecret);
     }

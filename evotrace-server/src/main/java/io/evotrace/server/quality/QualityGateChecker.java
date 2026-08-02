@@ -26,8 +26,12 @@ public class QualityGateChecker {
 
     /**
      * Run all quality gate checks for a release target.
+     *
+     * @param planId optional: bind the failedTests check to a test plan
+     *               (its failed items) instead of the release time window
      */
-    public Map<String, Object> check(Long projectId, String targetVersion, String checkedBy) {
+    public Map<String, Object> check(Long projectId, String targetVersion, String checkedBy,
+                                     Long planId) {
         Map<String, Object> checks = new LinkedHashMap<>();
         boolean allPassed = true;
         int totalWeight = 100;
@@ -44,15 +48,22 @@ public class QualityGateChecker {
         if (bugPassed) score += 30;
         else allPassed = false;
 
-        // Check 2: Failed test cases (25 points)
-        int failedTests = jdbc.queryForObject("""
-                SELECT count(DISTINCT te.test_case_id) FROM test_execution te
-                JOIN test_case tc ON tc.id = te.test_case_id
-                WHERE tc.project_id = ? AND te.status = 'FAILED'
-                """, Integer.class, projectId);
+        // Check 2: Failed test cases (25 points).
+        // Scope: the given plan's failed items, or the release time window
+        // (previous release → target release), falling back to all-time.
+        Map<String, Object> failedScope = resolveFailedTests(projectId, targetVersion, planId);
+        int failedTests = ((Number) failedScope.get("value")).intValue();
         boolean testPassed = failedTests == 0;
-        checks.put("failedTests", Map.of("passed", testPassed, "value", failedTests, "threshold", 0,
-                "weight", 25, "message", testPassed ? "所有用例通过" : failedTests + " 个失败用例"));
+        Map<String, Object> failedChecks = new LinkedHashMap<>();
+        failedChecks.put("passed", testPassed);
+        failedChecks.put("value", failedTests);
+        failedChecks.put("threshold", 0);
+        failedChecks.put("weight", 25);
+        failedChecks.put("scope", failedScope.get("scope"));
+        failedChecks.put("message", testPassed
+                ? "所有用例通过（口径: " + failedScope.get("scope") + "）"
+                : failedTests + " 个失败用例（口径: " + failedScope.get("scope") + "）");
+        checks.put("failedTests", failedChecks);
         if (testPassed) score += 25;
         else allPassed = false;
 
@@ -89,11 +100,16 @@ public class QualityGateChecker {
         else allPassed = false;
 
         // Check 5: Risk score (10 points)
-        Integer riskScore = jdbc.queryForObject("""
-                SELECT total_score FROM release_risk_score rs
-                JOIN release rel ON rel.id = rs.release_id
-                WHERE rel.project_id = ? AND rel.version = ?
-                """, Integer.class, projectId, targetVersion);
+        Integer riskScore = null;
+        try {
+            riskScore = jdbc.queryForObject("""
+                    SELECT total_score FROM release_risk_score rs
+                    JOIN release rel ON rel.id = rs.release_id
+                    WHERE rel.project_id = ? AND rel.version = ?
+                    """, Integer.class, projectId, targetVersion);
+        } catch (org.springframework.dao.EmptyResultDataAccessException ignored) {
+            // no risk score computed for this release yet
+        }
         if (riskScore == null) riskScore = 50; // default if not computed
         boolean riskPassed = riskScore <= 60;
         checks.put("riskScore", Map.of("passed", riskPassed, "value", riskScore, "threshold", 60,
@@ -107,7 +123,8 @@ public class QualityGateChecker {
                     INSERT INTO quality_gate(project_id, release_id, target_version, status, check_results, checked_at, checked_by)
                     VALUES (?, (SELECT id FROM release WHERE project_id=? AND version=?), ?, ?,
                         ?::jsonb, now(), ?)
-                    """, projectId, projectId, targetVersion, allPassed ? "PASSED" : "FAILED",
+                    """, projectId, projectId, targetVersion, targetVersion,
+                    allPassed ? "PASSED" : "FAILED",
                     mapper.writeValueAsString(checks), checkedBy);
         } catch (Exception e) {
             log.warn("failed to persist quality gate result", e);
@@ -119,6 +136,69 @@ public class QualityGateChecker {
 
         return Map.of("passed", allPassed, "score", score, "checks", checks, "verdict", verdict,
                 "checkedAt", OffsetDateTime.now().toString(), "checkedBy", checkedBy);
+    }
+
+    /** pgjdbc returns TIMESTAMPTZ as java.sql.Timestamp (not OffsetDateTime). */
+    private static OffsetDateTime toOdt(Object v) {
+        if (v instanceof OffsetDateTime odt) return odt;
+        if (v instanceof java.sql.Timestamp ts) return ts.toInstant().atOffset(java.time.ZoneOffset.UTC);
+        return null;
+    }
+
+    /** Failed-test count with an explicit scope: plan / release window / all-time. */
+    private Map<String, Object> resolveFailedTests(Long projectId, String targetVersion, Long planId) {
+        if (planId != null) {
+            int failed = jdbc.queryForObject("""
+                    SELECT count(*) FROM test_plan_item pi
+                    JOIN test_plan tp ON tp.id = pi.plan_id
+                    WHERE tp.project_id = ? AND pi.plan_id = ? AND pi.status = 'FAILED'
+                    """, Integer.class, projectId, planId);
+            String planName = jdbc.queryForObject(
+                    "SELECT name FROM test_plan WHERE id = ?", String.class, planId);
+            return Map.of("value", failed, "scope", "PLAN:" + planName);
+        }
+
+        // Locate the release time window: (previous release, target release]
+        java.util.List<Map<String, Object>> releases = jdbc.queryForList("""
+                SELECT version, released_at FROM release
+                WHERE project_id = ? ORDER BY released_at
+                """, projectId);
+        OffsetDateTime upper = null;
+        OffsetDateTime lower = null;
+        for (int i = 0; i < releases.size(); i++) {
+            Map<String, Object> r = releases.get(i);
+            if (targetVersion != null && targetVersion.equals(r.get("version"))) {
+                upper = toOdt(r.get("released_at"));
+                if (i > 0) {
+                    lower = toOdt(releases.get(i - 1).get("released_at"));
+                }
+                break;
+            }
+        }
+        if (upper == null) {
+            int allTime = jdbc.queryForObject("""
+                    SELECT count(DISTINCT te.test_case_id) FROM test_execution te
+                    JOIN test_case tc ON tc.id = te.test_case_id
+                    WHERE tc.project_id = ? AND te.status = 'FAILED'
+                    """, Integer.class, projectId);
+            return Map.of("value", allTime, "scope", "ALL(目标版本未登记 release，按全历史)");
+        }
+        if (lower == null) {
+            // First release of the project: no previous baseline
+            int failed = jdbc.queryForObject("""
+                    SELECT count(DISTINCT te.test_case_id) FROM test_execution te
+                    JOIN test_case tc ON tc.id = te.test_case_id
+                    WHERE tc.project_id = ? AND te.status = 'FAILED' AND te.executed_at <= ?
+                    """, Integer.class, projectId, upper);
+            return Map.of("value", failed, "scope", "RELEASE:≤" + targetVersion);
+        }
+        int failed = jdbc.queryForObject("""
+                SELECT count(DISTINCT te.test_case_id) FROM test_execution te
+                JOIN test_case tc ON tc.id = te.test_case_id
+                WHERE tc.project_id = ? AND te.status = 'FAILED'
+                  AND te.executed_at > ? AND te.executed_at <= ?
+                """, Integer.class, projectId, lower, upper);
+        return Map.of("value", failed, "scope", "RELEASE:" + lower.toLocalDate() + "→" + upper.toLocalDate());
     }
 
     /** Get quality gate history */

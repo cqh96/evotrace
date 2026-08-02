@@ -38,6 +38,7 @@ public class AiSummaryWorker {
     private final ChangeFileRepository changeFileRepository;
     private final ProjectRepository projectRepository;
     private final AiSemanticUnitRepository semanticUnitRepository;
+    private final CodeReviewEngine codeReviewEngine;
 
     @Value("${evotrace.ai.privacy-default:STRUCTURE_ONLY}")
     private String privacyDefault;
@@ -47,26 +48,35 @@ public class AiSummaryWorker {
                            ChangeEventRepository changeEventRepository,
                            ChangeFileRepository changeFileRepository,
                            ProjectRepository projectRepository,
-                           AiSemanticUnitRepository semanticUnitRepository) {
+                           AiSemanticUnitRepository semanticUnitRepository,
+                           CodeReviewEngine codeReviewEngine) {
         this.modelRouter = modelRouter;
         this.promptLoader = promptLoader;
         this.changeEventRepository = changeEventRepository;
         this.changeFileRepository = changeFileRepository;
         this.projectRepository = projectRepository;
         this.semanticUnitRepository = semanticUnitRepository;
+        this.codeReviewEngine = codeReviewEngine;
     }
 
-    @KafkaListener(topics = TOPIC_AI_TASKS, groupId = "ai-analysis")
+    @KafkaListener(topics = TOPIC_AI_TASKS, groupId = "ai-analysis",
+            containerFactory = "aiTaskListenerContainerFactory")
     public void onTask(String taskJson) {
         log.info("ai task received: {}", taskJson);
         try {
             AiTaskPayload task = mapper.readValue(taskJson, AiTaskPayload.class);
             if ("SUMMARIZE".equals(task.taskType())) {
                 generateSummary(task);
+            } else if ("CODE_REVIEW".equals(task.taskType())) {
+                codeReviewEngine.review(task.eventId(), "AUTO");
             }
         } catch (Exception e) {
             log.error("failed to process AI task: {}", taskJson, e);
-            // TODO(M1): retry with exponential backoff, then DLT after 3 failures
+            // Unexpected failures (parse errors, DB errors) propagate to the
+            // Kafka error handler: retry with backoff, then DLT after 3 attempts.
+            // Business failures inside generateSummary (AI call failed → FAILED)
+            // are handled internally and are not rethrown.
+            throw new RuntimeException("AI task processing failed", e);
         }
     }
 

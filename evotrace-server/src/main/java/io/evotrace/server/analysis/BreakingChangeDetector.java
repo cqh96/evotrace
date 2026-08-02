@@ -59,6 +59,7 @@ public class BreakingChangeDetector {
                       JOIN snapshot s_to ON s_to.id = r_to.snapshot_id
                       JOIN release rel_to ON rel_to.id = s_to.release_id
                       WHERE rel_to.version = ? AND si_to.category = 'API'
+                        AND r_to.change_flag != 'REMOVED'
                   )
                 """, projectId, fromVersion, toVersion);
 
@@ -92,8 +93,9 @@ public class BreakingChangeDetector {
                 """, toVersion, projectId, projectId, fromVersion);
 
         for (var ddl : ddlChanges) {
-            String before = (String) ddl.get("beforeJson");
-            String after = (String) ddl.get("afterJson");
+            // pgjdbc returns jsonb columns as PGobject, not String
+            String before = String.valueOf(ddl.get("beforeJson"));
+            String after = String.valueOf(ddl.get("afterJson"));
             List<String> droppedColumns = detectDroppedColumns(before, after);
             for (String col : droppedColumns) {
                 Map<String, Object> alert = Map.of(
@@ -126,8 +128,8 @@ public class BreakingChangeDetector {
                 """, toVersion, projectId, projectId, fromVersion);
 
         for (var mod : apiModifications) {
-            String before = (String) mod.get("beforeJson");
-            String after = (String) mod.get("afterJson");
+            String before = String.valueOf(mod.get("beforeJson"));
+            String after = String.valueOf(mod.get("afterJson"));
             if (before != null && after != null && TYPE_NARROW_PATTERN.matcher(before + "→" + after).find()) {
                 Map<String, Object> alert = Map.of(
                         "changeType", "FIELD_NARROWED",
@@ -173,10 +175,16 @@ public class BreakingChangeDetector {
     private void saveAlert(Long projectId, Long releaseId, String changeType, String severity,
                            Map<String, Object> detail) {
         try {
+            // Store the nested detail object so detail_json ->> 'message' works
+            // for dedup and the frontend reads row.detail.message directly
+            Object detailObj = detail.get("detail") instanceof Map<?, ?> d ? d : detail;
+            // Dedup: both the scheduled snapshot engine and the manual
+            // risk-score endpoint may detect the same change
             jdbc.update("""
                     INSERT INTO breaking_change_alert(project_id, release_id, change_type, severity, detail_json)
                     VALUES (?, ?, ?, ?, ?::jsonb)
-                    """, projectId, releaseId, changeType, severity, mapper.writeValueAsString(detail));
+                    ON CONFLICT (project_id, change_type, (detail_json ->> 'message')) DO NOTHING
+                    """, projectId, releaseId, changeType, severity, mapper.writeValueAsString(detailObj));
         } catch (Exception e) {
             log.error("failed to save breaking change alert", e);
         }

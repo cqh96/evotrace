@@ -20,7 +20,9 @@ export interface TimelineEvent {
   occurredAt: string
   summary?: string
   summaryStatus: 'PENDING' | 'DONE' | 'FAILED'
+  iterationId?: number
   iterationTitle?: string
+  files?: { path: string; kind: string; addLines: number; delLines: number }[]
 }
 
 export interface Release {
@@ -61,6 +63,7 @@ export interface QaReference {
 export interface QaAnswer {
   answer: string
   references: QaReference[]
+  model?: string
 }
 
 export const authApi = {
@@ -82,12 +85,14 @@ export const timelineApi = {
 export const releaseApi = {
   list: (projectKey: string): Promise<Release[]> => client.get(`/projects/${projectKey}/releases`),
   compare: (projectKey: string, from: string, to: string): Promise<CompareReport> =>
-    client.get(`/projects/${projectKey}/compare`, { params: { from, to } })
+    client.get(`/projects/${projectKey}/compare`, { params: { from, to } }),
+  generateReleaseNotes: (projectKey: string, fromVersion: string, toVersion: string): Promise<{ content: string; model: string }> =>
+    client.post(`/projects/${projectKey}/releases/release-notes`, { fromVersion, toVersion })
 }
 
 export const qaApi = {
-  ask: (projectKey: string, question: string): Promise<QaAnswer> =>
-    client.post(`/projects/${projectKey}/qa`, { question })
+  ask: (projectKey: string, question: string, modelId?: number): Promise<QaAnswer> =>
+    client.post(`/projects/${projectKey}/qa`, { question, modelId })
 }
 
 export interface DashboardStats {
@@ -219,6 +224,135 @@ export interface SubscriptionRule {
   createdAt: string
 }
 
+// ========== Test Management APIs (MeterSphere-inspired) ==========
+
+export interface TestCase {
+  id: number
+  title: string
+  description?: string
+  steps?: string
+  testType: string
+  priority: string
+  relatedFiles?: string
+  relatedApis?: string
+  tags?: string
+  requirementId?: number
+  parentId?: number
+  nodeType?: string
+  updatedAt?: string
+  execCount?: number
+  lastStatus?: string
+  bugs?: { id: number; title: string; severity: string; status: string; externalKey?: string }[]
+}
+
+export interface TestPlan {
+  id: number
+  name: string
+  targetVersion?: string
+  fromVersion?: string
+  status: string
+  total?: number
+  passed?: number
+  failed?: number
+  passRate?: number
+  progress?: number
+  createdAt?: string
+  items?: TestPlanItem[]
+}
+
+export interface TestPlanItem {
+  id: number
+  testCaseId: number
+  sortOrder: number
+  status: string
+  executor?: string
+  resultDetail?: string
+  executedAt?: string
+  title: string
+  priority: string
+  testType: string
+  steps?: string
+}
+
+export const testPlanApi = {
+  // 用例
+  listCases: (projectKey: string, params: Record<string, unknown>): Promise<{ total: number; list: TestCase[] }> =>
+    client.get(`/projects/${projectKey}/testplan/cases`, { params }),
+  getCaseTree: (projectKey: string): Promise<TestCase[]> => client.get(`/projects/${projectKey}/testplan/cases/tree`),
+  getCase: (projectKey: string, id: number): Promise<TestCase> => client.get(`/projects/${projectKey}/testplan/cases/${id}`),
+  createCase: (projectKey: string, data: Record<string, unknown>): Promise<{ id: number }> =>
+    client.post(`/projects/${projectKey}/testplan/cases`, data),
+  updateCase: (projectKey: string, id: number, data: Record<string, unknown>): Promise<void> =>
+    client.put(`/projects/${projectKey}/testplan/cases/${id}`, data),
+  deleteCase: (projectKey: string, id: number): Promise<void> => client.delete(`/projects/${projectKey}/testplan/cases/${id}`),
+  linkCaseBug: (projectKey: string, caseId: number, bugId: number): Promise<void> =>
+    client.post(`/projects/${projectKey}/testplan/cases/${caseId}/bugs`, { bugId }),
+  unlinkCaseBug: (projectKey: string, caseId: number, bugId: number): Promise<void> =>
+    client.delete(`/projects/${projectKey}/testplan/cases/${caseId}/bugs/${bugId}`),
+
+  // 计划
+  listPlans: (projectKey: string, params?: { status?: string }): Promise<TestPlan[]> =>
+    client.get(`/projects/${projectKey}/testplan/plans`, { params }),
+  createPlan: (projectKey: string, data: Record<string, unknown>): Promise<{ id: number }> =>
+    client.post(`/projects/${projectKey}/testplan/plans`, data),
+  deletePlan: (projectKey: string, id: number): Promise<void> => client.delete(`/projects/${projectKey}/testplan/plans/${id}`),
+  updatePlanStatus: (projectKey: string, id: number, status: string): Promise<void> =>
+    client.put(`/projects/${projectKey}/testplan/plans/${id}/status`, { status }),
+  getPlan: (projectKey: string, id: number): Promise<TestPlan> => client.get(`/projects/${projectKey}/testplan/plans/${id}`),
+  addPlanItems: (projectKey: string, id: number, testCaseIds: number[]): Promise<{ added: number }> =>
+    client.post(`/projects/${projectKey}/testplan/plans/${id}/items`, { testCaseIds }),
+  removePlanItem: (projectKey: string, planId: number, itemId: number): Promise<void> =>
+    client.delete(`/projects/${projectKey}/testplan/plans/${planId}/items/${itemId}`),
+  executePlanItem: (projectKey: string, planId: number, itemId: number, data: Record<string, unknown>): Promise<void> =>
+    client.put(`/projects/${projectKey}/testplan/plans/${planId}/items/${itemId}/execute`, data),
+  getPlanReport: (projectKey: string, id: number): Promise<Record<string, any>> =>
+    client.get(`/projects/${projectKey}/testplan/plans/${id}/report`),
+  createPlanFromRecommendation: (projectKey: string, data: { fromVersion: string; toVersion: string; planName?: string }): Promise<Record<string, any>> =>
+    client.post(`/projects/${projectKey}/testplan/plans/from-recommendation`, data),
+
+  // 执行与趋势
+  listExecutions: (projectKey: string, params: Record<string, unknown>): Promise<{ total: number; list: any[] }> =>
+    client.get(`/projects/${projectKey}/testplan/executions`, { params }),
+  recordExecution: (projectKey: string, data: Record<string, unknown>): Promise<{ id: number }> =>
+    client.post(`/projects/${projectKey}/testplan/executions`, data),
+  executionTrend: (projectKey: string, days = 30): Promise<{ day: string; total: number; passed: number; failed: number }[]> =>
+    client.get(`/projects/${projectKey}/testplan/trends/executions`, { params: { days } }),
+  bugTrend: (projectKey: string, days = 30): Promise<{ day: string; p0: number; p1: number; p2: number; p3: number }[]> =>
+    client.get(`/projects/${projectKey}/testplan/trends/bugs`, { params: { days } })
+}
+
+// ========== Jira 同步 ==========
+
+export interface JiraConfig {
+  baseUrl?: string
+  username?: string
+  apiToken?: string
+  jiraProjectKey?: string
+  issueType?: string
+  statusMap?: Record<string, string>
+  enabled: boolean
+  lastSyncAt?: string
+}
+
+export const jiraApi = {
+  getConfig: (projectKey: string): Promise<JiraConfig> => client.get(`/projects/${projectKey}/jira/config`),
+  saveConfig: (projectKey: string, data: JiraConfig): Promise<void> =>
+    client.put(`/projects/${projectKey}/jira/config`, data),
+  sync: (projectKey: string): Promise<{ imported: number }> => client.post(`/projects/${projectKey}/jira/sync`)
+}
+
+// ========== Bug 增强 ==========
+
+export const bugApi = {
+  transition: (bugId: number, toStatus: string, fixedVersion?: string): Promise<void> =>
+    client.put(`/pm/bugs/${bugId}/transition`, { toStatus, fixedVersion }),
+  detail: (bugId: number): Promise<Record<string, any>> => client.get(`/pm/bugs/${bugId}/detail`),
+  linkTestCase: (bugId: number, testCaseId: number): Promise<void> =>
+    client.post(`/pm/bugs/${bugId}/test-cases`, { testCaseId }),
+  unlinkTestCase: (bugId: number, testCaseId: number): Promise<void> =>
+    client.delete(`/pm/bugs/${bugId}/test-cases/${testCaseId}`)
+}
+
 export const subscriptionApi = {
   list: (): Promise<SubscriptionRule[]> => client.get('/subscriptions'),
   create: (data: { name: string; workspaceId: number; userId: number; filter: Record<string, unknown>; channel?: string; webhookUrl?: string }): Promise<void> =>
@@ -228,4 +362,40 @@ export const subscriptionApi = {
   delete: (id: number): Promise<void> => client.delete(`/subscriptions/${id}`),
   logs: (): Promise<{ id: number; channel: string; title: string; status: string; errorMsg?: string; createdAt: string }[]> =>
     client.get('/subscriptions/logs')
+}
+
+// ========== AI 模型配置 ==========
+
+export interface ModelConfig {
+  id: number
+  name: string
+  provider: string
+  baseUrl: string
+  apiKey?: string          // 列表返回脱敏值;编辑留空 = 保持原值
+  modelName: string
+  temperature?: number
+  enabled: boolean
+  default?: boolean
+  updatedAt?: string
+}
+
+export interface ModelStatus {
+  configured: boolean
+  model: string
+  provider?: string | null
+  baseUrl?: string | null
+  name?: string | null
+  usable: boolean
+}
+
+export const modelConfigApi = {
+  list: (): Promise<ModelConfig[]> => client.get('/ai/models'),
+  status: (): Promise<ModelStatus> => client.get('/ai/models/status'),
+  create: (data: Partial<ModelConfig>): Promise<ModelConfig> => client.post('/ai/models', data),
+  update: (id: number, data: Partial<ModelConfig>): Promise<ModelConfig> => client.put(`/ai/models/${id}`, data),
+  remove: (id: number): Promise<void> => client.delete(`/ai/models/${id}`),
+  enable: (id: number): Promise<void> => client.post(`/ai/models/${id}/enable`),
+  disable: (id: number): Promise<void> => client.post(`/ai/models/${id}/disable`),
+  setDefault: (id: number): Promise<void> => client.post(`/ai/models/${id}/default`),
+  test: (id: number): Promise<{ ok: boolean; message: string }> => client.post(`/ai/models/${id}/test`)
 }

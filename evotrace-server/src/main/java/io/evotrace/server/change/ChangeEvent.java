@@ -50,6 +50,9 @@ public class ChangeEvent {
     @Column(name = "summary_status", nullable = false, length = 16)
     private String summaryStatus = "PENDING";
 
+    @Column(name = "commit_message")
+    private String commitMessage;
+
     @Column(name = "occurred_at", nullable = false)
     private OffsetDateTime occurredAt;
 
@@ -91,6 +94,9 @@ public class ChangeEvent {
 
     public String getSummaryStatus() { return summaryStatus; }
     public void setSummaryStatus(String summaryStatus) { this.summaryStatus = summaryStatus; }
+
+    public String getCommitMessage() { return commitMessage; }
+    public void setCommitMessage(String commitMessage) { this.commitMessage = commitMessage; }
 
     public OffsetDateTime getOccurredAt() { return occurredAt; }
     public void setOccurredAt(OffsetDateTime occurredAt) { this.occurredAt = occurredAt; }

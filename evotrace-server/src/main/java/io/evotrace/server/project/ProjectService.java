@@ -69,6 +69,7 @@ public class ProjectService {
         credential.setProjectId(project.getId());
         credential.setApiKey(apiKey);
         credential.setSecretHash(passwordEncoder.encode(apiSecret));
+        credential.setHmacKey(apiSecret);
         credentialRepository.save(credential);
 
         return Map.of("apiKey", apiKey, "apiSecret", apiSecret);

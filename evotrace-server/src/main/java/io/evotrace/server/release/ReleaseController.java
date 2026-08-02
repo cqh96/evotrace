@@ -1,9 +1,12 @@
 package io.evotrace.server.release;
 
 import io.evotrace.common.Result;
+import io.evotrace.server.ai.ReleaseNotesService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -15,9 +18,23 @@ import java.util.Map;
 public class ReleaseController {
 
     private final JdbcTemplate jdbcTemplate;
+    private final ReleaseNotesService releaseNotesService;
 
-    public ReleaseController(JdbcTemplate jdbcTemplate) {
+    public ReleaseController(JdbcTemplate jdbcTemplate, ReleaseNotesService releaseNotesService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.releaseNotesService = releaseNotesService;
+    }
+
+    /** 生成 AI 发布说明（markdown），结果存入 ai_semantic_unit 并被 list 自动带出 */
+    @PostMapping("/release-notes")
+    public Result<Map<String, Object>> generateReleaseNotes(@PathVariable String projectKey,
+                                                            @RequestBody Map<String, String> body) {
+        String fromVersion = body.get("fromVersion");
+        String toVersion = body.get("toVersion");
+        if (fromVersion == null || toVersion == null) {
+            throw new IllegalArgumentException("缺少 fromVersion/toVersion");
+        }
+        return Result.ok(releaseNotesService.generate(projectKey, fromVersion, toVersion));
     }
 
     @GetMapping

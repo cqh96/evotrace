@@ -37,8 +37,15 @@ evotrace:
   ingestion:
     max-inline-diff-bytes: 262144
     signature-header: X-EvoTrace-Signature
+  partition:
+    months-ahead: 2
+    maintenance-cron: "0 30 0 1 * *"
   snapshot:
     full-baseline-interval: 20
+    cron: "0 0 3 * * *"
+  code-review:
+    auto-enabled: false
+    max-diff-chars: 12000
   ai:
     privacy-default: STRUCTURE_ONLY   # FULL_CODE / STRUCTURE_ONLY / LOCAL_ONLY
     summary-model: ${AI_CHAT_MODEL:gpt-4o-mini}

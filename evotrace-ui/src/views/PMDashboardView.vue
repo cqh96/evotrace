@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import FilterBar from '../components/FilterBar.vue'
+import PageCard from '../components/PageCard.vue'
+import StatCard from '../components/StatCard.vue'
 import client from '../api/client'
 
 const project = ref('mall')
@@ -41,8 +44,8 @@ async function loadAll() {
       client.get(`/pm/notifications?projectKey=${project.value}&role=PM`),
       client.get(`/pm/dashboard?projectKey=${project.value}`)
     ])
-    requirements.value = reqs as any[]
-    notifications.value = notifs as any[]
+    requirements.value = reqs as unknown as any[]
+    notifications.value = notifs as unknown as any[]
     bugStats.value = (dash as any).bugStats || []
     reqStats.value = (dash as any).requirementStats || []
   } catch { /* server not ready */ }
@@ -94,26 +97,26 @@ onMounted(loadAll)
 
 <template>
   <div>
-    <el-card shadow="never">
-      <el-form inline>
-        <el-form-item label="项目"><el-input v-model="project" style="width: 140px" /></el-form-item>
-        <el-form-item><el-button type="primary" @click="loadAll">刷新</el-button></el-form-item>
-        <el-form-item><el-button @click="reqFormVisible = true">新建需求</el-button></el-form-item>
-      </el-form>
-    </el-card>
+    <FilterBar :show-search="false" @search="loadAll">
+      <el-form-item label="项目"><el-input v-model="project" style="width: 140px" /></el-form-item>
+      <template #actions>
+        <el-button type="primary" @click="loadAll">刷新</el-button>
+        <el-button @click="reqFormVisible = true">新建需求</el-button>
+      </template>
+    </FilterBar>
 
-    <el-row :gutter="16" style="margin-top: 16px">
-      <el-col :span="6" v-for="c in statusColumns" :key="c">
-        <el-card shadow="hover">
-          <template #header>
-            <el-tag :type="statusColors[c] as any">{{ statusLabels[c] }} ({{ getReqStat(c) }})</el-tag>
-          </template>
-        </el-card>
+    <el-row :gutter="16">
+      <el-col v-for="c in statusColumns" :key="c" :xs="12" :sm="8" :lg="4">
+        <StatCard
+          :label="statusLabels[c]"
+          :value="getReqStat(c)"
+          :color="({ DRAFT: '#64748b', REVIEW: '#f59e0b', DEVELOPING: '#6366f1', TESTING: '#ef4444', DONE: '#10b981' } as Record<string, string>)[c]"
+        />
       </el-col>
     </el-row>
 
-    <el-card shadow="never" style="margin-top: 16px">
-      <el-tabs v-model="activeTab">
+    <PageCard no-padding style="margin-top: 16px">
+      <el-tabs v-model="activeTab" class="pm-tabs">
         <!-- PM Kanban -->
         <el-tab-pane label="需求看板" name="kanban">
           <div class="kanban-board">
@@ -167,7 +170,7 @@ onMounted(loadAll)
           <el-empty v-if="notifications.length === 0" description="暂无通知" :image-size="60" />
         </el-tab-pane>
       </el-tabs>
-    </el-card>
+    </PageCard>
 
     <!-- Create Requirement Dialog -->
     <el-dialog v-model="reqFormVisible" title="新建需求" width="560px">
@@ -192,15 +195,45 @@ onMounted(loadAll)
 
 
 <style scoped>
-.kanban-board { display: flex; gap: 12px; overflow-x: auto }
-.kanban-col { flex: 1; min-width: 200px; background: #f5f7fa; border-radius: 8px; padding: 8px }
-.kanban-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px }
-.count { font-weight: 700; font-size: 18px; color: #909399 }
-.kanban-card { background: #fff; padding: 10px; margin-bottom: 8px; border-radius: 6px; border: 1px solid #ebeef5 }
-.req-title { font-weight: 600; margin-bottom: 4px }
-.req-meta { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; font-size: 12px }
-.req-links { display: flex; gap: 12px; font-size: 12px; color: #909399; margin-bottom: 4px }
-.req-actions { display: flex; gap: 4px }
-.notif-item { padding: 8px 0; border-bottom: 1px dashed #ebeef5; cursor: pointer; display: flex; gap: 8px; align-items: center }
-.notif-time { color: #909399; font-size: 12px; margin-left: auto }
+.pm-tabs :deep(.el-tabs__header) {
+  margin: 0;
+  padding: 0 20px;
+}
+
+.pm-tabs :deep(.el-tab-pane) {
+  padding: 16px 20px 20px;
+}
+
+.kanban-board { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px }
+.kanban-col { flex: 1; min-width: 220px; background: var(--et-page-bg); border-radius: var(--et-radius); padding: 12px; border: 1px solid var(--et-border) }
+.kanban-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--et-border) }
+.count { font-weight: 700; font-size: 18px; color: var(--et-text-muted) }
+.kanban-card {
+  background: var(--et-card-bg);
+  padding: 12px;
+  margin-bottom: 8px;
+  border-radius: var(--et-radius);
+  border: 1px solid var(--et-border);
+  transition: box-shadow 0.2s, transform 0.2s;
+  cursor: default;
+}
+.kanban-card:hover { box-shadow: var(--et-shadow-md); transform: translateY(-1px) }
+.req-title { font-weight: 600; margin-bottom: 6px; color: var(--et-text); line-height: 1.4 }
+.req-meta { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; font-size: 12px }
+.req-links { display: flex; gap: 12px; font-size: 12px; color: var(--et-text-muted); margin-bottom: 6px }
+.req-actions { display: flex; gap: 4px; flex-wrap: wrap }
+.notif-item {
+  padding: 12px;
+  border-radius: var(--et-radius);
+  border: 1px solid var(--et-border);
+  margin-bottom: 8px;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  transition: background 0.15s;
+}
+.notif-item:hover { background: var(--et-page-bg) }
+.notif-time { color: var(--et-text-muted); font-size: 12px; margin-left: auto }
+.el-col { margin-bottom: 16px }
 </style>

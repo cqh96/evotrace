@@ -40,7 +40,6 @@ public class WebhookController {
 
     @PostMapping("/gitlab")
     public Result<Map<String, Object>> gitlab(@RequestHeader(value = "X-EvoTrace-Api-Key", required = false) String apiKey,
-                                               @RequestHeader(value = "X-EvoTrace-Signature", required = false) String signature,
                                                @RequestBody Map<String, Object> body) {
         String eventType = (String) body.getOrDefault("object_kind", "push");
         Envelope envelope = switch (eventType) {
@@ -52,7 +51,7 @@ public class WebhookController {
         if (envelope == null) {
             return Result.ok(Map.of("skipped", true, "reason", "unsupported event type: " + eventType));
         }
-        return ingestionService.accept(nvl(apiKey, "webhook-default"), nvl(signature, ""), envelope);
+        return ingestionService.acceptWebhook(envelope, apiKey);
     }
 
     @SuppressWarnings("unchecked")
@@ -105,9 +104,10 @@ public class WebhookController {
 
     @PostMapping("/github")
     public Result<Map<String, Object>> github(@RequestHeader(value = "X-EvoTrace-Api-Key", required = false) String apiKey,
-                                               @RequestHeader(value = "X-EvoTrace-Signature", required = false) String signature,
                                                @RequestHeader(value = "X-GitHub-Event", required = false) String ghEvent,
                                                @RequestBody Map<String, Object> body) {
+        // Note: GitHub's X-Hub-Signature-256 is a separate verification scheme
+        // (HMAC over the raw body with the webhook secret) — not yet verified.
         Envelope envelope = switch (ghEvent != null ? ghEvent : "ping") {
             case "push" -> parseGitHubPush(body);
             case "pull_request" -> parseGitHubPR(body);
@@ -118,7 +118,7 @@ public class WebhookController {
         if (envelope == null) {
             return Result.ok(Map.of("skipped", true, "reason", "github event: " + ghEvent));
         }
-        return ingestionService.accept(nvl(apiKey, "webhook-default"), nvl(signature, ""), envelope);
+        return ingestionService.acceptWebhook(envelope, apiKey);
     }
 
     @SuppressWarnings("unchecked")
@@ -196,9 +196,5 @@ public class WebhookController {
                 projectKey, null, type, OffsetDateTime.now(), source,
                 source.name().toLowerCase() + ":" + projectKey + ":" + System.currentTimeMillis(),
                 mapper.convertValue(payload, Map.class), null);
-    }
-
-    private static String nvl(String s, String defaultVal) {
-        return s != null && !s.isBlank() ? s : defaultVal;
     }
 }

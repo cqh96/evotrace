@@ -2,6 +2,7 @@ package io.evotrace.server.change;
 
 import io.evotrace.protocol.envelope.Envelope;
 import io.evotrace.server.ingestion.IngestionService;
+import io.evotrace.server.subscription.SubscriptionNotifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -14,10 +15,11 @@ import java.util.stream.Collectors;
 
 /**
  * Consumes raw events, routes them by eventType to the matching
- * {@link ChangeEventHandler}, syncs the Neo4j graph and dispatches AI tasks.
+ * {@link ChangeEventHandler} and triggers subscription notifications.
  * <p>
  * Event routing uses a strategy registry built from all Spring-injected
- * {@code ChangeEventHandler} beans.
+ * {@code ChangeEventHandler} beans. Unhandled event types are dropped with a
+ * warning; failures propagate to the Kafka error handler (retry + DLT).
  */
 @Component
 public class ChangeEventConsumer {
@@ -25,10 +27,13 @@ public class ChangeEventConsumer {
     private static final Logger log = LoggerFactory.getLogger(ChangeEventConsumer.class);
 
     private final Map<io.evotrace.protocol.envelope.EventType, ChangeEventHandler> handlerRegistry;
+    private final SubscriptionNotifier subscriptionNotifier;
 
-    public ChangeEventConsumer(List<ChangeEventHandler> handlers) {
+    public ChangeEventConsumer(List<ChangeEventHandler> handlers,
+                               SubscriptionNotifier subscriptionNotifier) {
         this.handlerRegistry = handlers.stream()
                 .collect(Collectors.toMap(ChangeEventHandler::supportedType, Function.identity()));
+        this.subscriptionNotifier = subscriptionNotifier;
     }
 
     @KafkaListener(topics = IngestionService.TOPIC_RAW_EVENTS, groupId = "change-service")
@@ -41,11 +46,12 @@ public class ChangeEventConsumer {
         }
         try {
             String eventId = handler.handle(envelope);
+            subscriptionNotifier.notifyAsync(envelope, eventId);
             log.info("event processed: type={} eventId={}", envelope.eventType(), eventId);
         } catch (Exception e) {
-            log.error("failed to process event: type={} eventId={}",
-                    envelope.eventType(), envelope.eventId(), e);
-            // TODO(M1): retry with exponential backoff, then DLT after 3 failures
+            log.warn("failed to process event: type={} eventId={}: {}",
+                    envelope.eventType(), envelope.eventId(), e.getMessage());
+            // Retry with backoff then DLT is handled by the Kafka error handler
             throw e;
         }
     }

@@ -26,12 +26,17 @@ public class TimelineController {
     public Result<List<Map<String, Object>>> query(@PathVariable String projectKey,
                                                    @RequestParam(required = false) String app,
                                                    @RequestParam(required = false) String type,
+                                                   @RequestParam(required = false) Long iterationId,
                                                    @RequestParam(defaultValue = "100") int limit) {
         StringBuilder sql = new StringBuilder("""
                 SELECT c.event_id AS "eventId", c.event_type AS "eventType",
                        a.app_key AS "appKey", c.branch, c.commit_sha AS "commitSha",
                        c.author, c.occurred_at AS "occurredAt", c.summary_status AS "summaryStatus",
-                       s.content AS summary, i.title AS "iterationTitle"
+                       c.iteration_id AS "iterationId",
+                       s.content AS summary, i.title AS "iterationTitle",
+                       (SELECT COALESCE(json_agg(json_build_object('path', f.file_path, 'kind', f.change_kind,
+                            'addLines', f.add_lines, 'delLines', f.del_lines)), '[]'::json)
+                        FROM change_file f WHERE f.event_id = c.event_id) AS files
                 FROM change_event c
                 JOIN project p ON p.id = c.project_id
                 LEFT JOIN application a ON a.id = c.app_id
@@ -48,6 +53,10 @@ public class TimelineController {
         if (type != null && !type.isBlank()) {
             sql.append(" AND c.event_type = ?");
             args.add(type);
+        }
+        if (iterationId != null) {
+            sql.append(" AND c.iteration_id = ?");
+            args.add(iterationId);
         }
         sql.append(" ORDER BY c.occurred_at DESC LIMIT ?");
         args.add(Math.min(limit, 500));

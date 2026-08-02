@@ -1,5 +1,6 @@
 package io.evotrace.server.analysis;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.evotrace.common.Result;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
@@ -31,18 +32,29 @@ public class AnalysisController {
         this.hotspotAnalyzer = hotspotAnalyzer;
     }
 
+    private static final ObjectMapper mapper = new ObjectMapper();
+
     /** Get breaking change alerts for a project */
     @GetMapping("/breaking-changes")
     public Result<List<Map<String, Object>>> breakingChanges(@PathVariable String projectKey) {
         Long projectId = getProjectId(projectKey);
-        return Result.ok(jdbc.queryForList("""
-                SELECT id, change_type AS "changeType", severity, detail_json AS detail,
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT id, change_type AS "changeType", severity, detail_json::text AS detail,
                        acknowledged, created_at AS "createdAt"
                 FROM breaking_change_alert
                 WHERE project_id = ? AND acknowledged = false
                 ORDER BY CASE severity WHEN 'CRITICAL' THEN 0 WHEN 'WARNING' THEN 1 ELSE 2 END, created_at DESC
                 LIMIT 50
-                """, projectId));
+                """, projectId);
+        // jsonb → text, then parse back so the frontend gets a plain object
+        for (Map<String, Object> row : rows) {
+            try {
+                row.put("detail", mapper.readValue((String) row.get("detail"), Map.class));
+            } catch (Exception e) {
+                // keep the raw text on parse failure
+            }
+        }
+        return Result.ok(rows);
     }
 
     /** Acknowledge a breaking change alert */
