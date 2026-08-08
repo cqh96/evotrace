@@ -157,6 +157,35 @@ public class TestPlanService {
         jdbc.update("DELETE FROM test_plan_item WHERE id = ? AND plan_id = ?", itemId, planId);
     }
 
+    /** 轻量排序：将 itemId 与其相邻项（direction=UP/DOWN）交换 sort_order，实现拖拽式编排。 */
+    @Transactional
+    public void reorderItem(Long projectId, Long planId, Long itemId, String direction) {
+        String status = getPlanStatus(planId);
+        if ("DONE".equals(status)) {
+            throw new IllegalArgumentException("已完成计划不可调整顺序");
+        }
+        List<Map<String, Object>> items = detail(projectId, planId).get("items") == null
+                ? List.of()
+                : (List<Map<String, Object>>) detail(projectId, planId).get("items");
+        int cur = -1;
+        for (int i = 0; i < items.size(); i++) {
+            if (itemId.equals(items.get(i).get("id"))) { cur = i; break; }
+        }
+        if (cur < 0) {
+            throw new IllegalArgumentException("计划项不存在");
+        }
+        int target = "UP".equalsIgnoreCase(direction) ? cur - 1 : cur + 1;
+        if (target < 0 || target >= items.size()) {
+            return; // 已在边界
+        }
+        Map<String, Object> a = items.get(cur);
+        Map<String, Object> b = items.get(target);
+        jdbc.update("UPDATE test_plan_item SET sort_order = ? WHERE id = ? AND plan_id = ?",
+                ((Number) b.get("sortOrder")).intValue(), a.get("id"), planId);
+        jdbc.update("UPDATE test_plan_item SET sort_order = ? WHERE id = ? AND plan_id = ?",
+                ((Number) a.get("sortOrder")).intValue(), b.get("id"), planId);
+    }
+
     @Transactional
     public void executeItem(Long projectId, Long planId, Long itemId,
                             String status, String executor, String resultDetail) {

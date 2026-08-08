@@ -39,12 +39,12 @@
       "properties": {
         "evotrace.serverUrl": {
           "type": "string",
-          "default": "http://localhost:8080",
+          "default": "http://43.155.130.69",
           "description": "EvoTrace 服务端地址"
         },
         "evotrace.defaultProject": {
           "type": "string",
-          "default": "mall",
+          "default": "maidao_merchant",
           "description": "默认项目标识"
         }
       }

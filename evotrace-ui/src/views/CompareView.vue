@@ -2,8 +2,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
-import FilterBar from '../components/FilterBar.vue'
-import PageCard from '../components/PageCard.vue'
 import { releaseApi, type CompareReport } from '../api'
 import { useProjectStore } from '../stores/project'
 
@@ -105,39 +103,166 @@ async function copyNote() {
 watch(project, () => loadVersions())
 
 onMounted(loadVersions)
+
+/* ---------- 以下为展示层新增（不影响原有逻辑） ---------- */
+// 交换基线 / 目标版本
+function swapVersions() {
+  const t = from.value
+  from.value = to.value
+  to.value = t
+}
+
+// 统计各变更标记数量（新增 / 修改 / 删除）
+const diffCounts = computed(() => {
+  const c: Record<string, number> = { ADDED: 0, MODIFIED: 0, REMOVED: 0 }
+  for (const k of ['apis', 'dependencies', 'configs', 'schemas'] as const) {
+    for (const it of report.value[k] as unknown[]) {
+      const f = (it as { changeFlag?: string }).changeFlag
+      if (f && f in c) c[f]++
+    }
+  }
+  return c
+})
+
+// 全部清单项总数
+const totalItems = computed(() => {
+  let n = 0
+  for (const k of ['apis', 'dependencies', 'configs', 'schemas'] as const) n += ((report.value[k] as unknown[])?.length ?? 0)
+  return n
+})
+
+const tabCount = (k: string) => (report.value[k as 'apis'] as unknown[])?.length ?? 0
+
+// 变更行高亮类名（按 changeFlag 染色）
+const rowClass = ({ row }: { row: unknown }) =>
+  'diff-' + String((row as { changeFlag?: string }).changeFlag ?? 'UNCHANGED').toLowerCase()
+
+// Tab 图标（图标为全局注册，无需导入）
+const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Box', configs: 'Setting', schemas: 'DataLine' }
 </script>
 
 <template>
-  <div>
-    <FilterBar :loading="loading" :show-search="false" @search="runCompare">
-      <el-form-item label="项目"><el-input v-model="project" style="width: 140px" /></el-form-item>
-      <el-form-item label="基线版本">
-        <el-select v-model="from" style="width: 140px"><el-option v-for="v in versionOptions" :key="v" :value="v" /></el-select>
-      </el-form-item>
-      <el-form-item label="目标版本">
-        <el-select v-model="to" style="width: 140px"><el-option v-for="v in versionOptions" :key="v" :value="v" /></el-select>
-      </el-form-item>
-      <template #actions>
-        <el-button type="primary" :loading="loading" @click="runCompare">生成对比报告</el-button>
-      </template>
-    </FilterBar>
+  <div class="compare-page">
+    <!-- ======== 版本选择区：玻璃卡片 ======== -->
+    <section class="et-card picker-card rise">
+      <div class="picker-row">
+        <div class="pick-block">
+          <span class="pick-label">项目</span>
+          <el-input v-model="project" class="pick-input" placeholder="项目 Key" />
+        </div>
+        <div class="pick-block">
+          <span class="pick-label">基线版本</span>
+          <el-select v-model="from" class="pick-input">
+            <el-option v-for="v in versionOptions" :key="v" :value="v" />
+          </el-select>
+        </div>
+        <button class="swap-btn" title="交换两个版本" :disabled="loading" @click="swapVersions">
+          <el-icon :size="15"><Switch /></el-icon>
+        </button>
+        <div class="pick-block">
+          <span class="pick-label">目标版本</span>
+          <el-select v-model="to" class="pick-input">
+            <el-option v-for="v in versionOptions" :key="v" :value="v" />
+          </el-select>
+        </div>
+        <div class="picker-actions">
+          <el-button type="primary" class="run-btn" :loading="loading" @click="runCompare">
+            <el-icon v-if="!loading" :size="15"><DataAnalysis /></el-icon>生成对比报告
+          </el-button>
+        </div>
+      </div>
+    </section>
 
-    <PageCard>
-      <el-alert type="info" :closable="false" show-icon class="compare-summary">
-        <template #title>
-          <span class="version-range">{{ report.fromVersion }} → {{ report.toVersion }}</span>
-          <span v-if="usingDemo" class="demo-tag"><el-tag type="warning" size="small" effect="dark">演示数据</el-tag></span>
-          <span class="stats-inline">
-            {{ report.stats.commits }} 个提交 · {{ report.stats.filesChanged }} 个文件 ·
-            <span class="add">+{{ report.stats.addLines }}</span> /
-            <span class="del">-{{ report.stats.delLines }}</span> 行
-          </span>
-        </template>
-        <el-button size="small" type="warning" plain style="margin-top: 8px"
-                   :loading="noteLoading" @click="generateReleaseNotes">AI 生成发布说明</el-button>
-      </el-alert>
-    </PageCard>
+    <!-- ======== 统计条 ======== -->
+    <section class="et-card stats-card rise" style="--d: .07s">
+      <div class="stats-top">
+        <div class="version-pair">
+          <span class="v-chip v-from">{{ report.fromVersion }}</span>
+          <span class="v-arrow et-grad-text">→</span>
+          <span class="v-chip v-to">{{ report.toVersion }}</span>
+          <span v-if="usingDemo" class="demo-badge" title="服务端未就绪时展示的内置演示数据">演示数据</span>
+        </div>
+        <el-button size="small" class="note-btn" :loading="noteLoading" @click="generateReleaseNotes">
+          <el-icon v-if="!noteLoading" :size="13"><MagicStick /></el-icon>AI 生成发布说明
+        </el-button>
+      </div>
+      <div class="stats-row">
+        <span class="chip chip-glass"><el-icon :size="13"><Document /></el-icon>{{ report.stats.commits }} 个提交</span>
+        <span class="chip chip-glass"><el-icon :size="13"><FolderOpened /></el-icon>{{ report.stats.filesChanged }} 个文件</span>
+        <span class="chip chip-lines">+{{ report.stats.addLines }} 行</span>
+        <span class="chip chip-lines del">-{{ report.stats.delLines }} 行</span>
+        <span class="chip chip-add">新增 {{ diffCounts.ADDED }}</span>
+        <span class="chip chip-mod">修改 {{ diffCounts.MODIFIED }}</span>
+        <span class="chip chip-del">删除 {{ diffCounts.REMOVED }}</span>
+      </div>
+    </section>
 
+    <!-- ======== 对比详情 ======== -->
+    <section class="et-card diff-card rise" style="--d: .13s">
+      <div class="et-card-head">
+        <span class="et-tic"><el-icon :size="15"><Connection /></el-icon></span>
+        <div>
+          <div class="et-card-title">对比详情</div>
+          <div class="et-card-sub">API / 依赖 / 配置 / DDL 变更清单</div>
+        </div>
+        <div class="right">
+          <span class="total-badge"><i class="total-dot"></i>共 {{ totalItems }} 项变更</span>
+        </div>
+      </div>
+      <div class="et-card-body no-padding">
+        <el-tabs v-model="activeTab" class="compare-tabs">
+          <el-tab-pane
+            v-for="t in [{k:'apis',l:'接口'},{k:'dependencies',l:'依赖'},{k:'configs',l:'配置'},{k:'schemas',l:'DDL'}]"
+            :key="t.k" :name="t.k"
+          >
+            <template #label>
+              <span class="tab-label">
+                <el-icon :size="13"><component :is="tabIcons[t.k]" /></el-icon>{{ t.l }}
+                <span class="tab-count">{{ tabCount(t.k) }}</span>
+              </span>
+            </template>
+            <div class="tab-content">
+              <el-table :data="report[t.k as 'apis']" :row-class-name="rowClass">
+                <el-table-column prop="identityKey" label="清单项" min-width="280" />
+                <el-table-column label="变化" width="110">
+                  <template #default="{ row }">
+                    <span class="flag-mark" :class="'flag-' + String(row.changeFlag).toLowerCase()">
+                      <i></i>{{ flagLabel(row.changeFlag) }}
+                    </span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="before" label="变更前" min-width="200"><template #default="{ row }">{{ row.before ?? '—' }}</template></el-table-column>
+                <el-table-column prop="after" label="变更后" min-width="200"><template #default="{ row }">{{ row.after ?? '—' }}</template></el-table-column>
+              </el-table>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
+      </div>
+    </section>
+
+    <!-- ======== 变更明细 ======== -->
+    <section v-if="compared && report.changes?.length" class="et-card rise" style="--d: .19s">
+      <div class="et-card-head">
+        <span class="et-tic"><el-icon :size="15"><List /></el-icon></span>
+        <div>
+          <div class="et-card-title">变更明细（{{ report.changes.length }}）</div>
+          <div class="et-card-sub">提交级变更记录与 AI 摘要</div>
+        </div>
+      </div>
+      <div class="et-card-body no-padding">
+        <el-table :data="report.changes">
+          <el-table-column prop="occurredAt" label="时间" width="200" />
+          <el-table-column label="类型" width="120">
+            <template #default="{ row }"><span class="type-text">{{ row.type }}</span></template>
+          </el-table-column>
+          <el-table-column prop="sha" label="提交" width="110" />
+          <el-table-column prop="author" label="作者" width="110" />
+          <el-table-column prop="summary" label="AI 摘要" min-width="300" />
+        </el-table>
+      </div>
+    </section>
+
+    <!-- ======== AI 发布说明 ======== -->
     <el-dialog v-model="noteVisible" title="AI 发布说明" width="680px" top="8vh">
       <div class="note-meta" v-if="noteModel">生成模型：{{ noteModel === 'template' ? '模板降级（未配置 AI）' : noteModel }}</div>
       <pre class="note-content">{{ noteContent }}</pre>
@@ -146,85 +271,301 @@ onMounted(loadVersions)
         <el-button type="primary" @click="copyNote">复制发布说明</el-button>
       </template>
     </el-dialog>
-
-    <PageCard title="对比详情" no-padding style="margin-top: 16px">
-      <el-tabs v-model="activeTab" class="compare-tabs">
-        <el-tab-pane v-for="t in [{k:'apis',l:'接口'},{k:'dependencies',l:'依赖'},{k:'configs',l:'配置'},{k:'schemas',l:'DDL'}]" :key="t.k" :label="t.l" :name="t.k">
-          <div class="tab-content">
-            <el-table :data="report[t.k as 'apis']" stripe>
-              <el-table-column prop="identityKey" label="清单项" min-width="280" />
-              <el-table-column label="变化" width="100">
-                <template #default="{ row }"><el-tag size="small" :type="flagType(row.changeFlag)">{{ flagLabel(row.changeFlag) }}</el-tag></template>
-              </el-table-column>
-              <el-table-column prop="before" label="变更前" min-width="200"><template #default="{ row }">{{ row.before ?? '—' }}</template></el-table-column>
-              <el-table-column prop="after" label="变更后" min-width="200"><template #default="{ row }">{{ row.after ?? '—' }}</template></el-table-column>
-            </el-table>
-          </div>
-        </el-tab-pane>
-      </el-tabs>
-    </PageCard>
-
-    <PageCard v-if="compared && report.changes?.length" :title="'变更明细（' + report.changes.length + ')'" style="margin-top: 16px">
-      <el-table :data="report.changes" stripe>
-        <el-table-column prop="occurredAt" label="时间" width="200" />
-        <el-table-column prop="type" label="类型" width="120" />
-        <el-table-column prop="sha" label="提交" width="110" />
-        <el-table-column prop="author" label="作者" width="110" />
-        <el-table-column prop="summary" label="AI 摘要" min-width="300" />
-      </el-table>
-    </PageCard>
   </div>
 </template>
 
 <style scoped>
-.compare-summary :deep(.el-alert__title) {
+/* ======== 版本选择卡片 ======== */
+.picker-card {
+  padding: 18px 22px;
+}
+
+.picker-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.pick-block {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 7px;
 }
 
-.demo-tag {
-  margin: 0 8px;
-}
-
-.version-range {
+.pick-label {
+  font-size: 10.5px;
   font-weight: 700;
-  font-size: 15px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--et-text-muted);
 }
 
+.pick-input {
+  width: 150px;
+}
+
+.picker-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.run-btn {
+  padding: 12px 20px;
+  border-radius: 12px;
+}
+
+.swap-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--et-bg-muted);
+  border: 1px solid var(--et-border);
+  color: var(--et-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.18s, border-color 0.18s, background 0.18s, box-shadow 0.18s, transform 0.35s;
+}
+
+.swap-btn:hover:not(:disabled) {
+  color: #fff;
+  border-color: var(--et-primary);
+  background: rgba(109, 124, 255, 0.14);
+  box-shadow: 0 0 0 3px rgba(109, 124, 255, 0.12);
+  transform: rotate(180deg);
+}
+
+.swap-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ======== 统计条 ======== */
+.stats-card {
+  padding: 18px 22px;
+}
+
+.stats-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.version-pair {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.v-chip {
+  padding: 6px 15px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.v-from {
+  color: #fff;
+  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b));
+  box-shadow: 0 6px 16px var(--et-glow);
+}
+
+.v-to {
+  color: #062233;
+  background: linear-gradient(135deg, #0ea5e9, var(--et-grad-c));
+  box-shadow: 0 6px 16px rgba(56, 225, 255, 0.3);
+}
+
+.v-arrow {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.demo-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 4px 11px;
+  border-radius: 20px;
+  color: var(--et-warn);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.16), rgba(249, 115, 22, 0.12));
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.note-btn {
+  margin-left: auto;
+}
+
+.stats-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 5px 13px;
+  border-radius: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chip-glass {
+  color: var(--et-text-secondary);
+  background: var(--et-bg-muted);
+  border: 1px solid var(--et-border);
+}
+
+.chip-glass .el-icon {
+  color: var(--et-grad-c);
+}
+
+.chip-lines {
+  color: var(--et-ok);
+  background: rgba(52, 211, 153, 0.12);
+}
+
+.chip-lines.del {
+  color: var(--et-danger);
+  background: rgba(251, 113, 133, 0.12);
+}
+
+.chip-add {
+  color: #fff;
+  background: linear-gradient(135deg, #34d399, #22c55e);
+  box-shadow: 0 5px 14px rgba(52, 211, 153, 0.3);
+}
+
+.chip-mod {
+  color: #fff;
+  background: linear-gradient(135deg, #fbbf24, #f97316);
+  box-shadow: 0 5px 14px rgba(251, 191, 36, 0.3);
+}
+
+.chip-del {
+  color: #fff;
+  background: linear-gradient(135deg, #fb7185, #f43f5e);
+  box-shadow: 0 5px 14px rgba(251, 113, 133, 0.3);
+}
+
+/* ======== 对比详情 ======== */
+.diff-card :deep(.el-tabs__header) {
+  margin: 0;
+  padding: 0 22px;
+}
+
+.tab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tab-count {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 20px;
+  color: var(--et-primary-light);
+  background: rgba(109, 124, 255, 0.13);
+}
+
+.tab-content {
+  padding: 0 22px 22px;
+}
+
+.total-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--et-text-secondary);
+}
+
+.total-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-c));
+  box-shadow: 0 0 8px var(--et-glow);
+}
+
+/* 变化标记 */
+.flag-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 11px;
+  border-radius: 20px;
+}
+
+.flag-mark i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.flag-added { color: var(--et-ok); background: rgba(52, 211, 153, 0.12); }
+.flag-added i { background: var(--et-ok); box-shadow: 0 0 8px rgba(52, 211, 153, 0.8); }
+.flag-removed { color: var(--et-danger); background: rgba(251, 113, 133, 0.12); }
+.flag-removed i { background: var(--et-danger); box-shadow: 0 0 8px rgba(251, 113, 133, 0.8); }
+.flag-modified { color: var(--et-warn); background: rgba(251, 191, 36, 0.13); }
+.flag-modified i { background: var(--et-warn); box-shadow: 0 0 8px rgba(251, 191, 36, 0.8); }
+.flag-unchanged { color: var(--et-text-muted); background: var(--et-bg-muted); }
+.flag-unchanged i { background: var(--et-text-muted); }
+
+/* 行级高亮：新增 / 删除 / 修改 */
+.diff-card :deep(.el-table__body tr.diff-added > td.el-table__cell) { background: rgba(52, 211, 153, 0.055); }
+.diff-card :deep(.el-table__body tr.diff-added:hover > td.el-table__cell) { background: rgba(52, 211, 153, 0.09); }
+.diff-card :deep(.el-table__body tr.diff-added > td.el-table__cell:first-child) { box-shadow: inset 3px 0 0 rgba(52, 211, 153, 0.65); }
+
+.diff-card :deep(.el-table__body tr.diff-removed > td.el-table__cell) { background: rgba(251, 113, 133, 0.05); }
+.diff-card :deep(.el-table__body tr.diff-removed:hover > td.el-table__cell) { background: rgba(251, 113, 133, 0.085); }
+.diff-card :deep(.el-table__body tr.diff-removed > td.el-table__cell:first-child) { box-shadow: inset 3px 0 0 rgba(251, 113, 133, 0.6); }
+
+.diff-card :deep(.el-table__body tr.diff-modified > td.el-table__cell) { background: rgba(251, 191, 36, 0.045); }
+.diff-card :deep(.el-table__body tr.diff-modified:hover > td.el-table__cell) { background: rgba(251, 191, 36, 0.08); }
+.diff-card :deep(.el-table__body tr.diff-modified > td.el-table__cell:first-child) { box-shadow: inset 3px 0 0 rgba(251, 191, 36, 0.55); }
+
+/* 变更明细 */
+.type-text {
+  color: var(--et-text-secondary);
+  font-weight: 600;
+  font-size: 12.5px;
+}
+
+/* 发布说明弹窗 */
 .note-meta {
   color: var(--et-text-secondary);
   font-size: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .note-content {
-  background: var(--et-bg-muted, #f5f7fa);
-  border: 1px solid var(--et-border, #e4e7ed);
-  border-radius: 6px;
-  padding: 12px;
+  background: var(--et-bg-muted);
+  border: 1px solid var(--et-border);
+  border-radius: 12px;
+  padding: 14px 16px;
   max-height: 55vh;
   overflow: auto;
   white-space: pre-wrap;
   font-size: 13px;
   line-height: 1.7;
-}
-
-.stats-inline {
-  font-weight: 400;
-  font-size: 13px;
-  color: var(--et-text-secondary);
-}
-
-.add { color: #10b981; font-weight: 600; }
-.del { color: #ef4444; font-weight: 600; }
-
-.compare-tabs :deep(.el-tabs__header) {
-  margin: 0;
-  padding: 0 20px;
-}
-
-.tab-content {
-  padding: 0 20px 20px;
+  font-family: inherit;
+  color: var(--et-text);
 }
 </style>

@@ -34,9 +34,24 @@ spring:
           temperature: 0.2
 
 evotrace:
+  server-url: ${EVOTRACE_SERVER_URL:}     # 环境自检回环地址，空则从请求推导
   ingestion:
     max-inline-diff-bytes: 262144
     signature-header: X-EvoTrace-Signature
+  test-executor:
+    request-timeout-ms: 8000
+    insecure-tls: true
+    max-response-chars: 2000
+    max-steps: 20
+  blob:
+    dir: ${EVOTRACE_BLOB_DIR:./data/blobs}
+  gitlab:
+    # Personal/Project Access Token with read_api (or read_repository)
+    token: ${GITLAB_TOKEN:}
+    # Optional; default derives from webhook project.web_url host
+    base-url: ${GITLAB_BASE_URL:}
+    fetch-diff: true
+    max-diff-chars-per-file: 200000
   partition:
     months-ahead: 2
     maintenance-cron: "0 30 0 1 * *"

@@ -21,11 +21,18 @@ public class QualityGateChecker {
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private final JdbcTemplate jdbc;
+    private final QualityGateRuleService ruleService;
 
-    public QualityGateChecker(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    public QualityGateChecker(JdbcTemplate jdbc, QualityGateRuleService ruleService) {
+        this.jdbc = jdbc;
+        this.ruleService = ruleService;
+    }
 
     /**
      * Run all quality gate checks for a release target.
+     *
+     * <p>规则驱动：检查项、权重、阈值来自 quality_gate_rule 表（全局默认 + 项目覆盖），
+     * 借鉴 SonarQube Quality Gate 的可配置思路。规则缺失时回退到内置默认权重。</p>
      *
      * @param planId optional: bind the failedTests check to a test plan
      *               (its failed items) instead of the release time window
@@ -34,51 +41,85 @@ public class QualityGateChecker {
                                      Long planId) {
         Map<String, Object> checks = new LinkedHashMap<>();
         boolean allPassed = true;
-        int totalWeight = 100;
         int score = 0;
 
-        // Check 1: Open P0/P1 bugs (30 points)
+        // 读取该项目生效规则（含全局默认），按 ruleKey 索引
+        Map<String, QualityGateRuleService.QualityGateRuleEntry> rules = new java.util.HashMap<>();
+        for (QualityGateRuleService.QualityGateRuleEntry r : ruleService.enabledRules(projectId)) {
+            rules.put(r.ruleKey(), r);
+        }
+
+        // 便捷取值：threshold JSON 中取 max / min
+        java.util.function.Function<String, Long> maxOf = key -> {
+            QualityGateRuleService.QualityGateRuleEntry r = rules.get(key);
+            if (r == null || r.threshold() == null) return null;
+            try {
+                var node = new ObjectMapper().readTree(r.threshold());
+                return node.has("max") ? node.get("max").asLong() : null;
+            } catch (Exception e) {
+                return null;
+            }
+        };
+        java.util.function.Function<String, Long> minOf = key -> {
+            QualityGateRuleService.QualityGateRuleEntry r = rules.get(key);
+            if (r == null || r.threshold() == null) return null;
+            try {
+                var node = new ObjectMapper().readTree(r.threshold());
+                return node.has("min") ? node.get("min").asLong() : null;
+            } catch (Exception e) {
+                return null;
+            }
+        };
+
+        // ===== Check 1: Open P0/P1 bugs =====
+        int bugWeight = ruleWeight(rules.get("BUGS"), 30);
         int blockerBugs = jdbc.queryForObject("""
                 SELECT count(*) FROM bug_ticket WHERE project_id = ?
                 AND severity IN ('P0','P1') AND status NOT IN ('CLOSED','VERIFIED')
                 """, Integer.class, projectId);
-        boolean bugPassed = blockerBugs == 0;
-        checks.put("openBlockerBugs", Map.of("passed", bugPassed, "value", blockerBugs, "threshold", 0,
-                "weight", 30, "message", bugPassed ? "无 P0/P1 缺陷" : "存在 " + blockerBugs + " 个未关闭的 P0/P1 缺陷"));
-        if (bugPassed) score += 30;
+        long bugThreshold = maxOf.apply("BUGS") != null ? maxOf.apply("BUGS") : 0;
+        boolean bugPassed = blockerBugs <= bugThreshold;
+        checks.put("openBlockerBugs", Map.of("passed", bugPassed, "value", blockerBugs,
+                "threshold", bugThreshold, "weight", bugWeight,
+                "message", bugPassed ? "无 P0/P1 缺陷" : "存在 " + blockerBugs + " 个未关闭的 P0/P1 缺陷"));
+        if (bugPassed) score += bugWeight;
         else allPassed = false;
 
-        // Check 2: Failed test cases (25 points).
-        // Scope: the given plan's failed items, or the release time window
-        // (previous release → target release), falling back to all-time.
+        // ===== Check 2: Failed test cases =====
+        int testWeight = ruleWeight(rules.get("FAILED_TESTS"), 25);
         Map<String, Object> failedScope = resolveFailedTests(projectId, targetVersion, planId);
         int failedTests = ((Number) failedScope.get("value")).intValue();
-        boolean testPassed = failedTests == 0;
+        long testThreshold = maxOf.apply("FAILED_TESTS") != null ? maxOf.apply("FAILED_TESTS") : 0;
+        boolean testPassed = failedTests <= testThreshold;
         Map<String, Object> failedChecks = new LinkedHashMap<>();
         failedChecks.put("passed", testPassed);
         failedChecks.put("value", failedTests);
-        failedChecks.put("threshold", 0);
-        failedChecks.put("weight", 25);
+        failedChecks.put("threshold", testThreshold);
+        failedChecks.put("weight", testWeight);
         failedChecks.put("scope", failedScope.get("scope"));
         failedChecks.put("message", testPassed
                 ? "所有用例通过（口径: " + failedScope.get("scope") + "）"
                 : failedTests + " 个失败用例（口径: " + failedScope.get("scope") + "）");
         checks.put("failedTests", failedChecks);
-        if (testPassed) score += 25;
+        if (testPassed) score += testWeight;
         else allPassed = false;
 
-        // Check 3: Breaking changes (20 points)
+        // ===== Check 3: Breaking changes =====
+        int breakWeight = ruleWeight(rules.get("BREAKING_CHANGES"), 20);
         int breakingChanges = jdbc.queryForObject("""
                 SELECT count(*) FROM breaking_change_alert
                 WHERE project_id = ? AND severity IN ('CRITICAL','WARNING') AND acknowledged = false
                 """, Integer.class, projectId);
-        boolean breakPassed = breakingChanges == 0;
-        checks.put("unacknowledgedBreaks", Map.of("passed", breakPassed, "value", breakingChanges, "threshold", 0,
-                "weight", 20, "message", breakPassed ? "无未确认的破坏性变更" : breakingChanges + " 个未确认的破坏性变更"));
-        if (breakPassed) score += 20;
+        long breakThreshold = maxOf.apply("BREAKING_CHANGES") != null ? maxOf.apply("BREAKING_CHANGES") : 0;
+        boolean breakPassed = breakingChanges <= breakThreshold;
+        checks.put("unacknowledgedBreaks", Map.of("passed", breakPassed, "value", breakingChanges,
+                "threshold", breakThreshold, "weight", breakWeight,
+                "message", breakPassed ? "无未确认的破坏性变更" : breakingChanges + " 个未确认的破坏性变更"));
+        if (breakPassed) score += breakWeight;
         else allPassed = false;
 
-        // Check 4: Test coverage of changed files (15 points)
+        // ===== Check 4: Test coverage of changed files =====
+        int covWeight = ruleWeight(rules.get("TEST_COVERAGE"), 15);
         int changedFiles = jdbc.queryForObject("""
                 SELECT count(DISTINCT f.file_path) FROM change_file f
                 JOIN change_event c ON c.event_id = f.event_id
@@ -92,14 +133,16 @@ public class QualityGateChecker {
                 WHERE c.project_id = ? AND c.occurred_at >= now() - interval '14 days'
                 """, Integer.class, projectId);
         int coverage = changedFiles > 0 ? (coveredFiles * 100 / changedFiles) : 100;
-        boolean covPassed = coverage >= 60;
+        long covThreshold = minOf.apply("TEST_COVERAGE") != null ? minOf.apply("TEST_COVERAGE") : 60;
+        boolean covPassed = coverage >= covThreshold;
         checks.put("testCoverage", Map.of("passed", covPassed, "value", coverage + "%",
-                "threshold", "60%", "weight", 15,
+                "threshold", covThreshold + "%", "weight", covWeight,
                 "message", covPassed ? "测试覆盖率 " + coverage + "%" : "测试覆盖率仅 " + coverage + "%，建议补充"));
-        if (covPassed) score += 15;
+        if (covPassed) score += covWeight;
         else allPassed = false;
 
-        // Check 5: Risk score (10 points)
+        // ===== Check 5: Risk score =====
+        int riskWeight = ruleWeight(rules.get("RISK_SCORE"), 10);
         Integer riskScore = null;
         try {
             riskScore = jdbc.queryForObject("""
@@ -111,10 +154,11 @@ public class QualityGateChecker {
             // no risk score computed for this release yet
         }
         if (riskScore == null) riskScore = 50; // default if not computed
-        boolean riskPassed = riskScore <= 60;
-        checks.put("riskScore", Map.of("passed", riskPassed, "value", riskScore, "threshold", 60,
-                "weight", 10, "message", riskPassed ? "风险评估通过 (" + riskScore + "/100)" : "风险评分过高 (" + riskScore + "/100)"));
-        if (riskPassed) score += 10;
+        long riskThreshold = maxOf.apply("RISK_SCORE") != null ? maxOf.apply("RISK_SCORE") : 60;
+        boolean riskPassed = riskScore <= riskThreshold;
+        checks.put("riskScore", Map.of("passed", riskPassed, "value", riskScore, "threshold", riskThreshold,
+                "weight", riskWeight, "message", riskPassed ? "风险评估通过 (" + riskScore + "/100)" : "风险评分过高 (" + riskScore + "/100)"));
+        if (riskPassed) score += riskWeight;
         else allPassed = false;
 
         // Persist
@@ -136,6 +180,10 @@ public class QualityGateChecker {
 
         return Map.of("passed", allPassed, "score", score, "checks", checks, "verdict", verdict,
                 "checkedAt", OffsetDateTime.now().toString(), "checkedBy", checkedBy);
+    }
+
+    private static int ruleWeight(QualityGateRuleService.QualityGateRuleEntry rule, int fallback) {
+        return rule != null ? rule.weight() : fallback;
     }
 
     /** pgjdbc returns TIMESTAMPTZ as java.sql.Timestamp (not OffsetDateTime). */

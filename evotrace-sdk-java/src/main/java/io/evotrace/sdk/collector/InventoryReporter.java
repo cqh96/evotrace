@@ -1,6 +1,8 @@
 package io.evotrace.sdk.collector;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.evotrace.protocol.envelope.Envelope;
 import io.evotrace.protocol.envelope.EventSource;
 import io.evotrace.protocol.envelope.EventType;
@@ -34,7 +36,10 @@ import java.util.UUID;
 public class InventoryReporter {
 
     private static final Logger log = LoggerFactory.getLogger(InventoryReporter.class);
-    private static final ObjectMapper mapper = new ObjectMapper();
+    /** Envelope.occurredAt 使用 OffsetDateTime，需注册 JSR-310 模块。 */
+    private static final ObjectMapper mapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     private final EvotraceProperties properties;
     private final List<InventoryCollector> collectors;

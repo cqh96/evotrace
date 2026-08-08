@@ -13,6 +13,7 @@ EvoTrace 打通「需求 → 代码 → 测试 → 缺陷 → 发布」全链路
 | [03-API接口文档.md](docs/03-API接口文档.md) | 完整 API 参考（开放API + 控制台API + PM/QA） |
 | [04-部署运维手册.md](docs/04-部署运维手册.md) | 部署、配置、Kafka 运维、故障排查 |
 | [05-开发者接入指南.md](docs/05-开发者接入指南.md) | Java SDK / CLI / Webhook / REST API 接入指引 |
+| [06-对接指南.md](docs/06-对接指南.md) | 快速对接 — 三步接入、签名协议、事件速查、常见错误 |
 
 ---
 
@@ -34,6 +35,7 @@ JDK 21 · Spring Boot 4.0 · Spring AI 2.0 · PostgreSQL 16(pgvector) · Neo4j 5
 | `evotrace-ai-prompts` | Prompt 模板与 Few-shot 样本 |
 | `evotrace-ui` | Vue3 Web 控制台——10 个功能页面 |
 | `evotrace-vscode` | VS Code / Cursor 插件 |
+| `evotrace-idea` | IntelliJ IDEA 插件（文件历史 / 项目面板） |
 
 ---
 
@@ -80,7 +82,7 @@ cd evotrace-ui && npx vite
 | **QA** | 测试推荐 + Bug 追溯 + 发布准入 | `/qa` |
 | **All** | AI 演化问答 | `/qa`（AI Q&A） |
 | **All** | 变更订阅 + 通知 | `/subscriptions` |
-| **Dev** | VS Code 右键文件 → 演化历史 | 插件 |
+| **Dev** | VS Code / IDEA 右键文件 → 演化历史 | 插件 |
 
 ---
 

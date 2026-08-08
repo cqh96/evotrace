@@ -153,8 +153,26 @@ export const applicationApi = {
     client.put(`/projects/${projectKey}/applications/${appKey}`, data)
 }
 
+export interface FileHistoryEntry {
+  eventId: string
+  eventType?: string
+  commitSha?: string
+  author?: string
+  branch?: string
+  commitMessage?: string
+  occurredAt: string
+  filePath?: string
+  changeKind?: string
+  addLines?: number
+  delLines?: number
+  diffBlobRef?: string
+  summary?: string
+  diff?: string | null
+  hasDiff?: boolean
+}
+
 export const fileApi = {
-  history: (path: string, projectKey: string): Promise<unknown[]> =>
+  history: (path: string, projectKey: string): Promise<FileHistoryEntry[]> =>
     client.get('/files/history', { params: { path, projectKey } })
 }
 
@@ -242,6 +260,7 @@ export interface TestCase {
   updatedAt?: string
   execCount?: number
   lastStatus?: string
+  runnable?: boolean
   bugs?: { id: number; title: string; severity: string; status: string; externalKey?: string }[]
 }
 
@@ -289,6 +308,11 @@ export const testPlanApi = {
     client.post(`/projects/${projectKey}/testplan/cases/${caseId}/bugs`, { bugId }),
   unlinkCaseBug: (projectKey: string, caseId: number, bugId: number): Promise<void> =>
     client.delete(`/projects/${projectKey}/testplan/cases/${caseId}/bugs/${bugId}`),
+  // AI 用例生成 + 需求追溯矩阵（对标 MeterSphere）
+  aiGenerateCase: (projectKey: string, data: { eventId: string; requirementId?: number }): Promise<Record<string, any>> =>
+    client.post(`/projects/${projectKey}/testplan/cases/ai-generate`, data, { timeout: 60000 }),
+  traceMatrix: (projectKey: string, requirementId: number): Promise<Record<string, any>> =>
+    client.get(`/projects/${projectKey}/testplan/traceability/requirements/${requirementId}`),
 
   // 计划
   listPlans: (projectKey: string, params?: { status?: string }): Promise<TestPlan[]> =>
@@ -303,6 +327,8 @@ export const testPlanApi = {
     client.post(`/projects/${projectKey}/testplan/plans/${id}/items`, { testCaseIds }),
   removePlanItem: (projectKey: string, planId: number, itemId: number): Promise<void> =>
     client.delete(`/projects/${projectKey}/testplan/plans/${planId}/items/${itemId}`),
+  reorderPlanItem: (projectKey: string, planId: number, itemId: number, direction: 'UP' | 'DOWN'): Promise<void> =>
+    client.put(`/projects/${projectKey}/testplan/plans/${planId}/items/${itemId}/reorder`, { direction }),
   executePlanItem: (projectKey: string, planId: number, itemId: number, data: Record<string, unknown>): Promise<void> =>
     client.put(`/projects/${projectKey}/testplan/plans/${planId}/items/${itemId}/execute`, data),
   getPlanReport: (projectKey: string, id: number): Promise<Record<string, any>> =>
@@ -318,7 +344,71 @@ export const testPlanApi = {
   executionTrend: (projectKey: string, days = 30): Promise<{ day: string; total: number; passed: number; failed: number }[]> =>
     client.get(`/projects/${projectKey}/testplan/trends/executions`, { params: { days } }),
   bugTrend: (projectKey: string, days = 30): Promise<{ day: string; p0: number; p1: number; p2: number; p3: number }[]> =>
-    client.get(`/projects/${projectKey}/testplan/trends/bugs`, { params: { days } })
+    client.get(`/projects/${projectKey}/testplan/trends/bugs`, { params: { days } }),
+
+  // 服务端执行器（http 步骤真实执行）
+  runCase: (projectKey: string, caseId: number, data?: Record<string, unknown>): Promise<RunCaseResult> =>
+    client.post(`/projects/${projectKey}/testplan/cases/${caseId}/run`, data ?? {}, { timeout: 60000 }),
+  runPlan: (projectKey: string, planId: number): Promise<RunPlanResult> =>
+    client.post(`/projects/${projectKey}/testplan/plans/${planId}/run`, {}, { timeout: 180000 })
+}
+
+// ========== 用例/计划执行结果（服务端执行器） ==========
+
+export interface RunStepResult {
+  index: number
+  name?: string
+  type: string
+  method?: string
+  url?: string
+  status: string
+  durationMs: number
+  statusCode?: number
+  responseSnippet?: string
+  error?: string
+  assertions?: { type: string; expected: string; passed: boolean; message: string }[]
+}
+
+export interface RunCaseResult {
+  executionId: number
+  verdict: string
+  durationMs: number
+  summary: string
+  runnable: boolean
+  steps: RunStepResult[]
+}
+
+export interface RunPlanResult {
+  planId: number
+  planName: string
+  total: number
+  runnable: number
+  skipped: number
+  passed: number
+  failed: number
+  durationMs: number
+  results: {
+    itemId: number
+    testCaseId: number
+    title: string
+    verdict: string
+    reason?: string
+    durationMs: number
+    steps: RunStepResult[]
+  }[]
+}
+
+// ========== 环境自检（链路演练） ==========
+
+export const diagnosticsApi = {
+  serverCheck: (projectKey: string): Promise<Record<string, any>> =>
+    client.get(`/projects/${projectKey}/diagnostics/server`),
+  credentialCheck: (projectKey: string): Promise<Record<string, any>> =>
+    client.get(`/projects/${projectKey}/diagnostics/credential`),
+  sendSample: (projectKey: string): Promise<Record<string, any>> =>
+    client.post(`/projects/${projectKey}/diagnostics/send-sample`, {}, { timeout: 30000 }),
+  sampleStatus: (projectKey: string, eventId: string): Promise<Record<string, any>> =>
+    client.get(`/projects/${projectKey}/diagnostics/sample`, { params: { eventId } })
 }
 
 // ========== Jira 同步 ==========
@@ -387,6 +477,10 @@ export interface ModelStatus {
   name?: string | null
   usable: boolean
 }
+
+// ========== PM 需求工作台 ==========
+
+export * from './pm'
 
 export const modelConfigApi = {
   list: (): Promise<ModelConfig[]> => client.get('/ai/models'),

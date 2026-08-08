@@ -27,14 +27,17 @@ public class TestPlanController {
     private final TestCaseService testCaseService;
     private final TestPlanService testPlanService;
     private final TestExecutionService testExecutionService;
+    private final AiTestCaseGenerator aiTestCaseGenerator;
 
     public TestPlanController(JdbcTemplate jdbc, TestCaseService testCaseService,
                               TestPlanService testPlanService,
-                              TestExecutionService testExecutionService) {
+                              TestExecutionService testExecutionService,
+                              AiTestCaseGenerator aiTestCaseGenerator) {
         this.jdbc = jdbc;
         this.testCaseService = testCaseService;
         this.testPlanService = testPlanService;
         this.testExecutionService = testExecutionService;
+        this.aiTestCaseGenerator = aiTestCaseGenerator;
     }
 
     private Long projectId(String projectKey) {
@@ -86,6 +89,23 @@ public class TestPlanController {
     public Result<Void> deleteCase(@PathVariable String projectKey, @PathVariable Long caseId) {
         testCaseService.delete(projectId(projectKey), caseId);
         return Result.ok(null);
+    }
+
+    /** AI 生成测试用例建议（对标 MeterSphere 智能用例）：输入变更事件 + 可选需求。 */
+    @PostMapping("/cases/ai-generate")
+    public Result<Map<String, Object>> aiGenerateCase(@PathVariable String projectKey,
+                                                      @RequestBody Map<String, Object> body) {
+        String eventId = String.valueOf(body.get("eventId"));
+        Long requirementId = body.get("requirementId") != null
+                ? ((Number) body.get("requirementId")).longValue() : null;
+        return Result.ok(aiTestCaseGenerator.generate(projectId(projectKey), eventId, requirementId));
+    }
+
+    /** 需求追溯矩阵：输入需求 → 返回关联用例（含执行状态）、关联缺陷与覆盖度。 */
+    @GetMapping("/traceability/requirements/{requirementId}")
+    public Result<Map<String, Object>> traceMatrix(@PathVariable String projectKey,
+                                                   @PathVariable Long requirementId) {
+        return Result.ok(testCaseService.traceMatrix(projectId(projectKey), requirementId));
     }
 
     @PostMapping("/cases/{caseId}/bugs")
@@ -159,6 +179,15 @@ public class TestPlanController {
     public Result<Void> removePlanItem(@PathVariable String projectKey, @PathVariable Long planId,
                                        @PathVariable Long itemId) {
         testPlanService.removeItem(projectId(projectKey), planId, itemId);
+        return Result.ok(null);
+    }
+
+    /** 轻量排序：body {direction: UP|DOWN}，对计划项做上移/下移。 */
+    @PutMapping("/plans/{planId}/items/{itemId}/reorder")
+    public Result<Void> reorderPlanItem(@PathVariable String projectKey, @PathVariable Long planId,
+                                        @PathVariable Long itemId, @RequestBody Map<String, Object> body) {
+        testPlanService.reorderItem(projectId(projectKey), planId, itemId,
+                String.valueOf(body.get("direction")));
         return Result.ok(null);
     }
 

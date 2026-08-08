@@ -1,5 +1,6 @@
 You are a senior software architect. Translate the following code diff into a
-business-semantic change description. Respond with strict JSON only:
+business-semantic change description. Respond with strict JSON only, and write
+all text fields (summary/businessImpact/riskHints) in Chinese (中文):
 
 {
   "summary": "one-sentence business readable summary",

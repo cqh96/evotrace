@@ -1,0 +1,45 @@
+<idea-plugin>
+    <id>io.evotrace.idea</id>
+    <name>EvoTrace</name>
+    <vendor url="https://github.com/evotrace">EvoTrace</vendor>
+    <description><![CDATA[
+      EvoTrace — 系统演化追踪与智能分析。<br/>
+      <ul>
+        <li>右键文件 → 查看文件演化历史（提交 / AI 摘要 / 行数）</li>
+        <li>工具窗口 / 状态栏打开项目面板（统计 + 热点文件）</li>
+        <li>Settings → Tools → EvoTrace 配置服务地址与项目标识</li>
+      </ul>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceImplementation="io.evotrace.idea.settings.EvotraceSettings"/>
+        <applicationConfigurable parentId="tools"
+                                 instance="io.evotrace.idea.settings.EvotraceConfigurable"
+                                 id="io.evotrace.idea.settings"
+                                 displayName="EvoTrace"/>
+        <toolWindow id="EvoTrace"
+                    anchor="right"
+                    icon="AllIcons.Actions.Preview"
+                    factoryClass="io.evotrace.idea.ui.EvotraceToolWindowFactory"/>
+        <statusBarWidgetFactory id="EvoTraceStatusBar"
+                                implementation="io.evotrace.idea.ui.EvotraceStatusBarWidgetFactory"/>
+    </extensions>
+
+    <actions>
+        <action id="evotrace.ShowFileHistory"
+                class="io.evotrace.idea.actions.ShowFileHistoryAction"
+                text="EvoTrace: 查看文件演化历史"
+                description="查询当前文件在 EvoTrace 中的演化记录">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+        </action>
+        <action id="evotrace.ShowDashboard"
+                class="io.evotrace.idea.actions.ShowDashboardAction"
+                text="EvoTrace: 打开项目面板"
+                description="打开 EvoTrace 项目统计与热点文件">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>

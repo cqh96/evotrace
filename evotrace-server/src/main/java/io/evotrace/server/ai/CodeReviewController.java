@@ -17,10 +17,16 @@ public class CodeReviewController {
 
     private final JdbcTemplate jdbc;
     private final CodeReviewEngine reviewEngine;
+    private final PrDescriptionGenerator prDescriptionGenerator;
+    private final CodeReviewPushbackService pushbackService;
 
-    public CodeReviewController(JdbcTemplate jdbc, CodeReviewEngine reviewEngine) {
+    public CodeReviewController(JdbcTemplate jdbc, CodeReviewEngine reviewEngine,
+                                PrDescriptionGenerator prDescriptionGenerator,
+                                CodeReviewPushbackService pushbackService) {
         this.jdbc = jdbc;
         this.reviewEngine = reviewEngine;
+        this.prDescriptionGenerator = prDescriptionGenerator;
+        this.pushbackService = pushbackService;
     }
 
     /** 触发代码审查（对指定 change event） */
@@ -131,5 +137,25 @@ public class CodeReviewController {
         }
 
         return Result.ok(Map.of("total", eventIds.size(), "reviewed", reviewed, "failures", failures));
+    }
+
+    /** 生成单 MR/PR 描述（借鉴 PR-Agent /describe，落库到 ai_semantic_unit）。 */
+    @PostMapping("/projects/{projectKey}/code-review/{eventId}/pr-description")
+    public Result<Map<String, Object>> prDescription(@PathVariable String projectKey,
+                                                      @PathVariable String eventId) {
+        return Result.ok(prDescriptionGenerator.generate(eventId));
+    }
+
+    /** 审查结果回写 GitLab MR 评论（body: {mergeRequestIid}）。 */
+    @PostMapping("/projects/{projectKey}/code-review/{eventId}/push-back")
+    public Result<Map<String, Object>> pushBack(@PathVariable String projectKey,
+                                                 @PathVariable String eventId,
+                                                 @RequestBody(required = false) Map<String, Object> body) {
+        Integer mrIid = null;
+        if (body != null && body.get("mergeRequestIid") != null) {
+            Object v = body.get("mergeRequestIid");
+            mrIid = v instanceof Number n ? n.intValue() : Integer.parseInt(v.toString());
+        }
+        return Result.ok(pushbackService.pushBack(projectKey, eventId, mrIid));
     }
 }

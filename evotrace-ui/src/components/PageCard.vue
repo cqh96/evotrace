@@ -1,54 +1,40 @@
 <script setup lang="ts">
+import type { Component } from 'vue'
+
 defineProps<{
   title?: string
+  sub?: string
+  icon?: Component
   noPadding?: boolean
 }>()
 </script>
 
 <template>
-  <div class="page-card">
-    <div v-if="title || $slots.header" class="page-card-header">
+  <div class="et-card page-card">
+    <div v-if="title || sub || $slots.header" class="et-card-head">
       <slot name="header">
-        <span>{{ title }}</span>
+        <div class="head-left">
+          <div class="et-card-title">
+            <span v-if="icon" class="et-tic"><el-icon :size="15"><component :is="icon" /></el-icon></span>
+            <span>{{ title }}</span>
+          </div>
+          <div v-if="sub" class="et-card-sub">{{ sub }}</div>
+        </div>
       </slot>
-      <div v-if="$slots.extra" class="page-card-extra">
+      <div v-if="$slots.extra" class="right">
         <slot name="extra" />
       </div>
     </div>
-    <div class="page-card-body" :class="{ 'no-padding': noPadding }">
+    <div class="et-card-body" :class="{ 'no-padding': noPadding }">
       <slot />
     </div>
   </div>
 </template>
 
 <style scoped>
-.page-card {
-  background: var(--et-card-bg);
-  border: 1px solid var(--et-border);
-  border-radius: var(--et-radius);
-  box-shadow: var(--et-shadow-sm);
-}
-
-.page-card + .page-card {
-  margin-top: 16px;
-}
-
-.page-card-header {
+.head-left {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--et-border);
-  font-weight: 600;
-  font-size: 15px;
-  color: var(--et-text);
-}
-
-.page-card-body {
-  padding: 20px;
-}
-
-.page-card-body.no-padding {
-  padding: 0;
+  flex-direction: column;
+  gap: 3px;
 }
 </style>

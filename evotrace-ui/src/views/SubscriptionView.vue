@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Bell, Plus } from '@element-plus/icons-vue'
-import FilterBar from '../components/FilterBar.vue'
-import PageCard from '../components/PageCard.vue'
+import { Bell, Plus, RefreshRight, Delete, Promotion } from '@element-plus/icons-vue'
 import { subscriptionApi } from '../api'
 import { useProjectStore } from '../stores/project'
 
@@ -19,6 +17,39 @@ const form = ref({ name: '', workspaceId: 1, userId: 2, filter: { projectKey: pr
 
 const eventOptions = ['CODE_COMMIT','MR_MERGED','RELEASE_TAG','DDL_CHANGE','CONFIG_CHANGE','DEPLOY_RECORD']
 const channelMap: Record<string, string> = { FEISHU: '飞书', DINGTALK: '钉钉', WECHAT: '企业微信', WEBHOOK: 'Webhook', EMAIL: '邮件' }
+
+/* ---------- 展示辅助（不参与业务逻辑） ---------- */
+const sessionChips = ref<Record<string, { projectKey: string; eventTypes: string[] }>>({})
+const logoGrads = ['g-indigo', 'g-emerald', 'g-amber', 'g-violet', 'g-cyan']
+const eventLabels: Record<string, string> = {
+  CODE_COMMIT: '代码提交', MR_MERGED: '合并请求', RELEASE_TAG: '发布标签',
+  DDL_CHANGE: 'DDL 变更', CONFIG_CHANGE: '配置变更', DEPLOY_RECORD: '部署记录'
+}
+const enabledCount = computed(() => subscriptions.value.filter((s) => s.enabled).length)
+
+function logoCls(i: number) { return logoGrads[i % logoGrads.length] }
+function channelTagCls(c: string) {
+  const map: Record<string, string> = {
+    FEISHU: 'et-tag-info', DINGTALK: 'et-tag-api', WECHAT: 'et-tag-test',
+    WEBHOOK: 'et-tag-review', EMAIL: 'et-tag-rel'
+  }
+  return map[c] ?? 'et-tag-info'
+}
+function channelAccent(c: string) {
+  const map: Record<string, string> = {
+    FEISHU: '#38e1ff', DINGTALK: '#fbbf24', WECHAT: '#34d399',
+    WEBHOOK: '#a78bfa', EMAIL: '#f472b6'
+  }
+  return map[c] ?? '#6d7cff'
+}
+function trackCreated() {
+  const f = form.value.filter
+  sessionChips.value[form.value.name] = {
+    projectKey: typeof f.projectKey === 'string' ? f.projectKey : '',
+    eventTypes: Array.isArray(f.eventTypes) ? (f.eventTypes as string[]) : []
+  }
+}
+function fmtTime(t?: string) { return t ? t.replace('T', ' ').substring(0, 16) : '' }
 
 async function load() {
   loading.value = true
@@ -37,40 +68,100 @@ onMounted(load)
 </script>
 
 <template>
-  <div>
-    <FilterBar :loading="loading" @search="load">
-      <template #actions>
+  <div class="page">
+    <!-- Hero -->
+    <section class="et-hero rise" style="--d: 0.02s">
+      <div class="hero-left">
+        <h2>变更订阅</h2>
+        <div class="et-hero-sub">订阅感兴趣的变更事件，实时推送到飞书、钉钉或 Webhook</div>
+        <div class="hero-chips">
+          <span class="chip-mini">订阅规则 <b>{{ subscriptions.length }}</b></span>
+          <span class="chip-mini">生效中 <b>{{ enabledCount }}</b></span>
+          <span class="chip-mini live"><span class="et-pulse"></span>推送实时</span>
+        </div>
+      </div>
+      <div class="hero-right">
         <el-button type="primary" :icon="Plus" @click="dialogVisible = true">新建订阅</el-button>
-      </template>
-    </FilterBar>
+      </div>
+    </section>
 
-    <PageCard title="订阅规则" style="margin-top: 16px" v-loading="loading">
-      <el-empty v-if="!loading && subscriptions.length === 0" description="暂无订阅，点击上方按钮创建" :image-size="60" />
-      <div v-else class="sub-list">
-        <div v-for="s in subscriptions" :key="s.id" class="sub-item">
-          <div class="sub-info">
-            <span class="sub-name">{{ s.name }}</span>
-            <el-tag size="small" effect="plain" round>{{ channelMap[s.channel] || s.channel }}</el-tag>
-            <span class="sub-time">创建于 {{ s.createdAt?.substring(0, 10) }}</span>
-          </div>
-          <div class="sub-actions">
-            <el-switch :model-value="s.enabled" @change="(v: boolean) => toggleRule(s.id, v)" size="small" />
-            <el-button size="small" type="danger" text @click="deleteRule(s.id)">删除</el-button>
+    <!-- 订阅规则（分组卡片） -->
+    <section class="et-card rise loading-sec" style="--d: 0.08s" v-loading="loading">
+      <div class="et-card-head">
+        <span class="et-tic"><el-icon :size="15"><Bell /></el-icon></span>
+        <div>
+          <div class="et-card-title">订阅规则</div>
+          <div class="et-card-sub">匹配条件 · 推送渠道 · 实时生效</div>
+        </div>
+        <div class="right">
+          <button class="et-link-more" @click="load"><el-icon :size="13"><RefreshRight /></el-icon>刷新</button>
+          <el-button type="primary" size="small" :icon="Plus" @click="dialogVisible = true">新建订阅</el-button>
+        </div>
+      </div>
+      <div class="et-card-body">
+        <div v-if="!loading && subscriptions.length === 0" class="et-empty-hint">
+          <div class="et-empty-ic"><el-icon :size="24"><Bell /></el-icon></div>
+          暂无订阅规则，点击「新建订阅」关注感兴趣的项目变更
+        </div>
+        <div v-else class="sub-list">
+          <div
+            v-for="(s, i) in subscriptions" :key="s.id"
+            class="sub-card" :class="{ on: s.enabled }"
+            :style="{ '--acc': channelAccent(s.channel) }"
+          >
+            <span class="sub-accent"></span>
+            <span class="et-g-ic" :class="logoCls(i)">{{ (channelMap[s.channel] || s.channel).charAt(0) }}</span>
+            <div class="sub-main">
+              <div class="sub-top">
+                <span class="sub-name">{{ s.name }}</span>
+                <span class="sub-status" :class="s.enabled ? 'on' : 'off'">{{ s.enabled ? '生效中' : '已暂停' }}</span>
+              </div>
+              <div class="sub-chips">
+                <span class="et-mini-tag" :class="channelTagCls(s.channel)">{{ channelMap[s.channel] || s.channel }}</span>
+                <template v-if="sessionChips[s.name]">
+                  <span v-if="sessionChips[s.name].projectKey" class="et-mini-tag et-tag-info">{{ sessionChips[s.name].projectKey }}</span>
+                  <span v-for="t in sessionChips[s.name].eventTypes" :key="t" class="et-mini-tag et-tag-req">{{ eventLabels[t] ?? t }}</span>
+                </template>
+                <span class="sub-time">创建于 {{ s.createdAt?.substring(0, 10) }}</span>
+              </div>
+            </div>
+            <div class="sub-actions">
+              <el-switch class="sub-switch" :model-value="s.enabled" @change="(v: boolean) => toggleRule(s.id, v)" />
+              <button class="sub-del" title="删除订阅" @click="deleteRule(s.id)">
+                <el-icon :size="14"><Delete /></el-icon>
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </PageCard>
+    </section>
 
-    <PageCard title="通知记录" style="margin-top: 16px" v-loading="loading">
-      <el-empty v-if="!loading && logs.length === 0" description="暂无通知记录" :image-size="60" />
-      <el-table v-else :data="logs" size="small" stripe>
-        <el-table-column label="渠道" width="80"><template #default="{row}"><el-tag size="small">{{ channelMap[row.channel]||row.channel }}</el-tag></template></el-table-column>
-        <el-table-column prop="title" label="标题" min-width="240" />
-        <el-table-column label="状态" width="80"><template #default="{row}"><el-tag size="small" :type="row.status==='SENT'?'success':'danger'">{{ row.status }}</el-tag></template></el-table-column>
-        <el-table-column prop="createdAt" label="时间" width="180" />
-      </el-table>
-    </PageCard>
+    <!-- 通知记录 -->
+    <section class="et-card rise loading-sec" style="--d: 0.14s" v-loading="loading">
+      <div class="et-card-head">
+        <span class="et-tic"><el-icon :size="15"><Promotion /></el-icon></span>
+        <div>
+          <div class="et-card-title">通知记录</div>
+          <div class="et-card-sub">最近推送的变更通知</div>
+        </div>
+      </div>
+      <div class="et-card-body">
+        <div v-if="!loading && logs.length === 0" class="et-empty-hint">
+          <div class="et-empty-ic"><el-icon :size="24"><Promotion /></el-icon></div>
+          暂无通知记录
+        </div>
+        <div v-else class="log-list">
+          <div v-for="log in logs" :key="log.id" class="log-row">
+            <span class="et-mini-tag" :class="channelTagCls(log.channel)">{{ channelMap[log.channel] || log.channel }}</span>
+            <span class="log-title">{{ log.title }}</span>
+            <span class="et-mini-tag" :class="log.status === 'SENT' ? 'et-tag-review' : 'et-tag-api'">{{ log.status === 'SENT' ? '已送达' : '失败' }}</span>
+            <span class="log-time">{{ fmtTime(log.createdAt) }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
 
+    <!-- 新建订阅 -->
     <el-dialog v-model="dialogVisible" title="新建变更订阅" width="520px">
       <el-form label-width="80px">
         <el-form-item label="名称"><el-input v-model="form.name" placeholder="如：支付模块DDL变更通知" /></el-form-item>
@@ -82,17 +173,84 @@ onMounted(load)
         <el-form-item label="事件类型"><el-select v-model="form.filter.eventTypes" multiple><el-option v-for="t in eventOptions" :key="t" :value="t" /></el-select></el-form-item>
         <el-form-item label="文件模式"><el-input v-model="form.filter.filePattern" placeholder="**/payment/** (glob)" /></el-form-item>
       </el-form>
-      <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" @click="create">创建</el-button></template>
+      <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" @click="create; trackCreated()">创建</el-button></template>
     </el-dialog>
   </div>
 </template>
 
 <style scoped>
-.sub-list { display: flex; flex-direction: column }
-.sub-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--et-border) }
-.sub-item:last-child { border: none }
-.sub-info { display: flex; align-items: center; gap: 12px }
-.sub-name { font-weight: 600; color: var(--et-text) }
-.sub-time { color: var(--et-text-muted); font-size: 12px }
-.sub-actions { display: flex; align-items: center; gap: 12px }
+.page .et-hero { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 18px; flex-wrap: wrap; }
+.hero-left { min-width: 0; }
+.hero-chips { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.hero-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.chip-mini {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12px; color: var(--et-text-secondary);
+  padding: 6px 12px; border-radius: 10px;
+  background: var(--et-bg-muted); border: 1px solid var(--et-border);
+}
+.chip-mini b { color: var(--et-text); font-variant-numeric: tabular-nums; }
+.chip-mini.live { color: var(--et-ok); }
+.chip-mini .et-pulse { width: 6px; height: 6px; }
+
+.loading-sec { position: relative; }
+
+/* ---------- 订阅分组卡片 ---------- */
+.sub-list { display: flex; flex-direction: column; gap: 12px; }
+.sub-card {
+  position: relative; display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px; border-radius: 14px;
+  background: var(--et-card-bg); border: 1px solid var(--et-border);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  overflow: hidden; transition: border-color 0.22s, box-shadow 0.22s, background 0.22s;
+}
+.sub-card:hover { border-color: var(--et-hover-border); box-shadow: var(--et-shadow-md); }
+.sub-card.on {
+  border-color: rgba(52, 211, 153, 0.3);
+  background: linear-gradient(90deg, rgba(52, 211, 153, 0.06), rgba(109, 124, 255, 0.05));
+}
+.sub-accent {
+  position: absolute; left: 0; top: 14px; bottom: 14px;
+  width: 3px; border-radius: 3px;
+  background: var(--acc, var(--et-grad-a)); opacity: 0.7;
+}
+.sub-main { flex: 1; min-width: 0; }
+.sub-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sub-name { font-size: 14px; font-weight: 700; }
+.sub-status { font-size: 10.5px; font-weight: 700; padding: 2.5px 8px; border-radius: 20px; flex-shrink: 0; }
+.sub-status.on { color: var(--et-ok); background: rgba(52, 211, 153, 0.12); }
+.sub-status.off { color: var(--et-text-muted); background: var(--et-bg-muted); }
+.sub-chips { display: flex; align-items: center; gap: 7px; margin-top: 8px; flex-wrap: wrap; }
+.sub-time { font-size: 11px; color: var(--et-text-muted); }
+.sub-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+
+/* 开关启用时渐变配色 */
+.sub-switch :deep(.el-switch.is-checked .el-switch__core) {
+  background-image: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b)) !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: 0 0 10px var(--et-glow);
+}
+.sub-del {
+  width: 30px; height: 30px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--et-text-muted); background: none;
+  border: 1px solid transparent; cursor: pointer; transition: all 0.15s;
+}
+.sub-del:hover { color: var(--et-danger); background: rgba(251, 113, 133, 0.12); border-color: rgba(251, 113, 133, 0.3); }
+
+/* ---------- 通知记录 ---------- */
+.log-list { display: flex; flex-direction: column; }
+.log-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 8px; border-radius: 10px;
+  border-bottom: 1px solid var(--et-border); transition: background 0.15s;
+}
+.log-row:last-child { border-bottom: none; }
+.log-row:hover { background: rgba(109, 124, 255, 0.05); }
+.log-title {
+  flex: 1; min-width: 0; font-size: 13px; font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.log-time { font-size: 11px; color: var(--et-text-muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 </style>

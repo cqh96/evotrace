@@ -60,42 +60,54 @@ onUnmounted(() => cancelAnimationFrame(animId))
 
 <template>
   <div class="login-page">
-    <div class="login-left">
-      <canvas ref="canvasRef" class="particles" />
-      <div class="hero">
-        <div class="hero-logo">E</div>
-        <h1>EvoTrace</h1>
-        <p class="hero-tagline">系统演化追踪与智能分析平台</p>
-        <ul class="hero-features">
-          <li>需求 → 代码 → 测试 → 发布全链路打通</li>
-          <li>AI 驱动的变更摘要与影响面分析</li>
-          <li>版本对比 · 风险评分 · 质量门禁 · 热点分析</li>
-        </ul>
-      </div>
+    <!-- 氛围背景 -->
+    <div class="et-aurora" aria-hidden="true">
+      <div class="et-orb et-orb-1"></div>
+      <div class="et-orb et-orb-2"></div>
+      <div class="et-orb et-orb-3"></div>
+      <div class="et-grid-overlay"></div>
     </div>
 
-    <div class="login-right">
-      <div class="login-form-wrap">
-        <h2>欢迎回来</h2>
-        <p class="login-subtitle">登录以访问 EvoTrace 控制台</p>
+    <!-- 登录卡片 -->
+    <div class="login-stage">
+      <div class="login-card rise">
+        <!-- 品牌区 -->
+        <div class="brand rise" style="--d: 0.08s">
+          <div class="brand-logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12h4l2.5-7 5 14 2.5-7h4" />
+            </svg>
+          </div>
+          <h1 class="brand-name et-grad-text">EvoTrace</h1>
+          <p class="brand-sub">全链路演化追踪平台</p>
+        </div>
 
-        <el-form class="login-form" @submit.prevent="login">
+        <!-- 表单 -->
+        <el-form class="login-form rise" style="--d: 0.16s" @submit.prevent="login">
           <el-form-item>
             <el-input v-model="form.username" placeholder="用户名" size="large">
               <template #prefix><el-icon><User /></el-icon></template>
             </el-input>
           </el-form-item>
           <el-form-item>
-            <el-input v-model="form.password" type="password" placeholder="密码" size="large" show-password @keyup.enter="login">
+            <el-input v-model="form.password" type="password" placeholder="密码" size="large"
+                      show-password @keyup.enter="login">
               <template #prefix><el-icon><Lock /></el-icon></template>
             </el-input>
           </el-form-item>
           <el-button type="primary" size="large" class="login-btn" :loading="loading" @click="login">登 录</el-button>
         </el-form>
 
-        <div class="login-hint">
+        <!-- 环境提示 -->
+        <div class="login-hint rise" style="--d: 0.24s">
           <el-icon><InfoFilled /></el-icon>
-          开发环境默认账号：admin / admin123
+          <span>开发环境默认账号：admin / admin123</span>
+        </div>
+
+        <!-- 页脚 -->
+        <div class="login-foot rise" style="--d: 0.32s">
+          © 2026 EvoTrace · v2.0 · 全链路演化追踪与智能分析平台
         </div>
       </div>
     </div>
@@ -103,48 +115,117 @@ onUnmounted(() => cancelAnimationFrame(animId))
 </template>
 
 <style scoped>
-.login-page { min-height: 100vh; display: flex }
-
-.login-left {
-  flex: 1; background: linear-gradient(145deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
-  display: flex; align-items: center; justify-content: center; padding: 48px;
-  position: relative; overflow: hidden;
+.login-page {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  overflow: hidden;
 }
 
-.particles { position: absolute; inset: 0; width: 100%; height: 100% }
-
-.login-left::before {
-  content: ''; position: absolute; inset: 0;
-  background: radial-gradient(circle at 20% 80%, rgba(99,102,241,0.15) 0%, transparent 50%),
-              radial-gradient(circle at 80% 20%, rgba(139,92,246,0.12) 0%, transparent 50%);
+.login-stage {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 404px;
 }
 
-.hero { position: relative; max-width: 420px; color: #f1f5f9 }
-.hero-logo {
-  width: 56px; height: 56px; border-radius: 14px;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  color: #fff; font-size: 28px; font-weight: 800;
-  display: flex; align-items: center; justify-content: center; margin-bottom: 24px;
-  box-shadow: 0 8px 32px rgba(99,102,241,0.3);
+/* ======== 玻璃卡片：22px 大圆角 + 渐变描边 + 辉光 ======== */
+.login-card {
+  position: relative;
+  border-radius: 22px;
+  padding: 44px 40px 26px;
+  background: var(--et-card-bg);
+  border: 1px solid transparent;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 24px 70px rgba(2, 6, 23, 0.45), 0 0 80px rgba(109, 124, 255, 0.08);
+  transition: box-shadow 0.25s, border-color 0.25s;
+}
+.login-card:hover {
+  box-shadow: 0 30px 80px rgba(2, 6, 23, 0.5), 0 0 100px rgba(109, 124, 255, 0.14);
+}
+.login-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  padding: 1px;
+  background: linear-gradient(160deg, rgba(109, 124, 255, 0.65), rgba(255, 255, 255, 0.1) 35%, rgba(56, 225, 255, 0.5));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask-composite: exclude;
+  pointer-events: none;
+}
+[data-theme="light"] .login-card {
+  box-shadow: 0 24px 60px rgba(63, 78, 158, 0.18), 0 0 60px rgba(91, 107, 255, 0.1);
+}
+[data-theme="light"] .login-card::before {
+  background: linear-gradient(160deg, rgba(91, 107, 255, 0.55), rgba(255, 255, 255, 0.75) 40%, rgba(56, 225, 255, 0.55));
 }
 
-.hero h1 { font-size: 36px; font-weight: 800; margin: 0 0 12px; letter-spacing: -0.5px }
-.hero-tagline { font-size: 16px; color: #94a3b8; margin: 0 0 32px; line-height: 1.6 }
+/* ======== 品牌区 ======== */
+.brand { text-align: center; margin-bottom: 30px; }
+.brand-logo {
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 18px;
+  border-radius: 17px;
+  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b) 55%, var(--et-grad-c));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 12px 30px var(--et-glow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.brand-logo svg { width: 30px; height: 30px; filter: drop-shadow(0 1px 3px rgba(2, 6, 23, 0.3)); }
+.brand-name { margin: 0; font-size: 27px; font-weight: 800; letter-spacing: 0.5px; }
+.brand-sub { margin: 9px 0 0; font-size: 12px; color: var(--et-text-muted); letter-spacing: 2.5px; }
 
-.hero-features { list-style: none; padding: 0; margin: 0 }
-.hero-features li { padding: 10px 0 10px 24px; position: relative; color: #cbd5e1; font-size: 14px; line-height: 1.5 }
-.hero-features li::before { content: '✓'; position: absolute; left: 0; color: #818cf8; font-weight: 700 }
+/* ======== 表单 ======== */
+.login-form :deep(.el-input__wrapper) { padding: 4px 14px; }
+.login-form .el-form-item { margin-bottom: 18px; }
+.login-btn {
+  width: 100%;
+  height: 46px;
+  margin-top: 4px;
+  border-radius: 13px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 6px;
+}
 
-.login-right { width: 480px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--et-card-bg); padding: 48px; transition: background 0.3s }
+/* ======== 环境提示 ======== */
+.login-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 22px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--et-primary-bg);
+  border: 1px solid rgba(109, 124, 255, 0.2);
+  color: var(--et-text-secondary);
+  font-size: 12px;
+}
+.login-hint .el-icon { color: var(--et-primary-light); flex-shrink: 0; }
 
-.login-form-wrap { width: 100%; max-width: 360px }
-.login-form-wrap h2 { margin: 0 0 8px; font-size: 24px; font-weight: 700; color: var(--et-text) }
-.login-subtitle { margin: 0 0 32px; color: var(--et-text-secondary); font-size: 14px }
+/* ======== 页脚 ======== */
+.login-foot {
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--et-border);
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--et-text-muted);
+  letter-spacing: 0.5px;
+}
 
-.login-form :deep(.el-input__wrapper) { border-radius: 10px; padding: 4px 12px }
-.login-btn { width: 100%; height: 44px; border-radius: 10px; font-size: 15px; font-weight: 600; margin-top: 8px }
-
-.login-hint { display: flex; align-items: center; gap: 6px; margin-top: 24px; padding: 12px 14px; background: var(--et-page-bg); border-radius: 8px; color: var(--et-text-muted); font-size: 12px }
-
-@media (max-width: 900px) { .login-left { display: none } .login-right { width: 100% } }
+@media (max-width: 480px) {
+  .login-card { padding: 36px 24px 22px; }
+}
 </style>

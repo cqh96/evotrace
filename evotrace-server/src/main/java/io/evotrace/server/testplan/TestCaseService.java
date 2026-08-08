@@ -76,7 +76,7 @@ public class TestCaseService {
         List<Map<String, Object>> rows = jdbc.queryForList("""
                 SELECT tc.id, tc.title, tc.test_type AS "testType", tc.priority, tc.tags,
                        tc.requirement_id AS "requirementId", tc.parent_id AS "parentId",
-                       tc.updated_at AS "updatedAt",
+                       tc.updated_at AS "updatedAt", tc.steps,
                        (SELECT count(*) FROM test_execution te WHERE te.test_case_id = tc.id) AS "execCount",
                        (SELECT te.status FROM test_execution te WHERE te.test_case_id = tc.id
                          ORDER BY te.executed_at DESC LIMIT 1) AS "lastStatus"
@@ -85,6 +85,10 @@ public class TestCaseService {
                 LIMIT ? OFFSET ?
                 """, java.util.stream.Stream.concat(args.stream(), java.util.stream.Stream.of(pageSize, (page - 1) * pageSize)).toArray());
 
+        for (Map<String, Object> row : rows) {
+            row.put("runnable", TestExecutionRunner.isRunnable((String) row.get("steps")));
+            row.remove("steps");
+        }
         return Map.of("total", total, "list", rows);
     }
 
@@ -98,6 +102,7 @@ public class TestCaseService {
                 FROM test_case_bug_link l JOIN bug_ticket b ON b.id = l.bug_id
                 WHERE l.test_case_id = ? ORDER BY b.id
                 """, caseId));
+        row.put("runnable", TestExecutionRunner.isRunnable((String) row.get("steps")));
         return row;
     }
 
@@ -159,6 +164,52 @@ public class TestCaseService {
         if (updated == 0) {
             throw new IllegalArgumentException("用例不存在");
         }
+    }
+
+    /**
+     * 需求追溯矩阵（对标 MeterSphere）：输入需求 → 返回关联用例（含最近执行状态）、
+     * 关联缺陷与覆盖度汇总，打通 需求→用例→执行→缺陷 全链路。
+     */
+    public Map<String, Object> traceMatrix(Long projectId, Long requirementId) {
+        Map<String, Object> req = jdbc.queryForMap("""
+                SELECT id, title, status, priority, target_version AS "targetVersion"
+                FROM requirement WHERE id = ? AND project_id = ?
+                """, requirementId, projectId);
+        List<Map<String, Object>> cases = jdbc.queryForList("""
+                SELECT tc.id, tc.title, tc.test_type AS "testType", tc.priority,
+                       (SELECT te.status FROM test_execution te WHERE te.test_case_id = tc.id
+                         ORDER BY te.executed_at DESC NULLS LAST LIMIT 1) AS "lastStatus",
+                       (SELECT count(*) FROM test_execution te WHERE te.test_case_id = tc.id) AS "execCount"
+                FROM test_case tc WHERE tc.requirement_id = ? AND tc.project_id = ?
+                ORDER BY tc.id
+                """, requirementId, projectId);
+        List<Map<String, Object>> bugs = jdbc.queryForList("""
+                SELECT b.id, b.title, b.severity, b.status
+                FROM bug_ticket b
+                WHERE (b.requirement_id = ? AND b.project_id = ?)
+                   OR (b.project_id = ? AND b.id IN (SELECT l.bug_id FROM test_case_bug_link l
+                               JOIN test_case tc2 ON tc2.id = l.test_case_id
+                               WHERE tc2.requirement_id = ?))
+                ORDER BY b.id
+                """, requirementId, projectId, requirementId, projectId);
+
+        long passed = cases.stream().filter(c -> "PASSED".equals(c.get("lastStatus"))).count();
+        long failed = cases.stream().filter(c -> "FAILED".equals(c.get("lastStatus"))).count();
+        long openBugs = bugs.stream().filter(b -> !Set.of("CLOSED", "VERIFIED").contains(b.get("status"))).count();
+
+        Map<String, Object> coverage = new java.util.LinkedHashMap<>();
+        coverage.put("total", cases.size());
+        coverage.put("passed", passed);
+        coverage.put("failed", failed);
+        coverage.put("pending", cases.size() - passed - failed);
+        coverage.put("openBugs", openBugs);
+
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("requirement", req);
+        out.put("testCases", cases);
+        out.put("bugs", bugs);
+        out.put("coverage", coverage);
+        return out;
     }
 
     @Transactional

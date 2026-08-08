@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -31,9 +32,11 @@ public class WebhookController {
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private final IngestionService ingestionService;
+    private final GitLabDiffFetcher gitLabDiffFetcher;
 
-    public WebhookController(IngestionService ingestionService) {
+    public WebhookController(IngestionService ingestionService, GitLabDiffFetcher gitLabDiffFetcher) {
         this.ingestionService = ingestionService;
+        this.gitLabDiffFetcher = gitLabDiffFetcher;
     }
 
     // ==================== GitLab ====================
@@ -68,12 +71,48 @@ public class WebhookController {
         Map<String, Object> lastCommit = commits.get(commits.size() - 1);
         Map<String, Object> author = (Map<String, Object>) lastCommit.get("author");
 
+        String commitSha = (String) lastCommit.get("id");
+        Object gitlabProjectId = project != null ? project.get("id") : body.get("project_id");
+        String webUrl = project != null ? (String) project.get("web_url") : null;
+
+        // Prefer real unified diffs from GitLab API (needs evotrace.gitlab.token).
+        // Fall back to path-only lists from the webhook payload when fetch fails.
+        List<CodeCommitPayload.FileChange> files =
+                gitLabDiffFetcher.fetchCommitFiles(gitlabProjectId, commitSha, webUrl);
+        if (files.isEmpty()) {
+            files = new ArrayList<>();
+            files.addAll(fileChanges((List<?>) lastCommit.get("added"),
+                    CodeCommitPayload.FileChange.ChangeKind.ADDED, false));
+            files.addAll(fileChanges((List<?>) lastCommit.get("modified"),
+                    CodeCommitPayload.FileChange.ChangeKind.MODIFIED, false));
+            files.addAll(fileChanges((List<?>) lastCommit.get("removed"),
+                    CodeCommitPayload.FileChange.ChangeKind.DELETED, true));
+        }
+
         CodeCommitPayload payload = new CodeCommitPayload(repoUrl, branch,
-                (String) lastCommit.get("id"), List.of(),
+                commitSha, List.of(),
                 author != null ? (String) author.get("name") : "unknown",
                 author != null ? (String) author.get("email") : "",
-                (String) lastCommit.get("message"), List.of());
+                (String) lastCommit.get("message"), files);
         return buildEnvelope(projectKey, EventType.CODE_COMMIT, EventSource.GITLAB_WEBHOOK, payload);
+    }
+
+    /** GitLab 文件名数组 → FileChange 列表(无行数信息,记为 0)。deleted 时文件路径放 oldPath。 */
+    private List<CodeCommitPayload.FileChange> fileChanges(List<?> paths,
+                                                            CodeCommitPayload.FileChange.ChangeKind kind,
+                                                            boolean deleted) {
+        if (paths == null) {
+            return List.of();
+        }
+        List<CodeCommitPayload.FileChange> files = new ArrayList<>();
+        for (Object p : paths) {
+            if (p instanceof String path) {
+                files.add(deleted
+                        ? new CodeCommitPayload.FileChange(path, null, kind, 0, 0, null)
+                        : new CodeCommitPayload.FileChange(null, path, kind, 0, 0, null));
+            }
+        }
+        return files;
     }
 
     @SuppressWarnings("unchecked")
@@ -183,9 +222,9 @@ public class WebhookController {
         Map<String, Object> project = (Map<String, Object>) body.get("project");
         if (project != null) {
             String name = (String) project.get("name");
-            if (name != null) return name;
+            if (name != null) return name.toLowerCase();  // EvoTrace projectKey 统一小写,避免 GitLab 大小写不匹配
             String path = (String) project.get("path_with_namespace");
-            if (path != null) return path.replace("/", "-");
+            if (path != null) return path.replace("/", "-").toLowerCase();
         }
         return "unknown";
     }

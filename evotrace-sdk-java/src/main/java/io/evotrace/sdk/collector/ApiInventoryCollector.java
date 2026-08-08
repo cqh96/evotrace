@@ -4,6 +4,7 @@ import io.evotrace.protocol.payload.InventoryReportPayload;
 import io.evotrace.sdk.autoconfigure.EvotraceProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -20,16 +21,21 @@ import java.util.Map;
 /**
  * Scans Spring MVC RequestMappingHandlerMapping to produce an API inventory.
  * Extracts HTTP method, path, and a signature fingerprint of parameters and return type.
+ *
+ * <p>使用 ObjectProvider 懒获取 handlerMapping:构造器直注会在自动配置阶段强制提前
+ * 初始化 MVC 核心 bean,可能把应用自身的 bean 循环依赖(如字段注入循环)暴露成启动错误。
+ * 采集发生在应用就绪后,届时 handlerMapping 必然可用。</p>
  */
 public class ApiInventoryCollector implements InventoryCollector {
 
     private static final Logger log = LoggerFactory.getLogger(ApiInventoryCollector.class);
 
-    private final RequestMappingHandlerMapping handlerMapping;
+    private final ObjectProvider<RequestMappingHandlerMapping> handlerMappingProvider;
     private final EvotraceProperties properties;
 
-    public ApiInventoryCollector(RequestMappingHandlerMapping handlerMapping, EvotraceProperties properties) {
-        this.handlerMapping = handlerMapping;
+    public ApiInventoryCollector(ObjectProvider<RequestMappingHandlerMapping> handlerMapping,
+                                 EvotraceProperties properties) {
+        this.handlerMappingProvider = handlerMapping;
         this.properties = properties;
     }
 
@@ -40,6 +46,11 @@ public class ApiInventoryCollector implements InventoryCollector {
 
     @Override
     public InventoryReportPayload collect() {
+        RequestMappingHandlerMapping handlerMapping = handlerMappingProvider.getIfAvailable();
+        if (handlerMapping == null) {
+            log.warn("api inventory skipped: RequestMappingHandlerMapping not available");
+            return new InventoryReportPayload(null, null, null, List.of(), List.of(), null, null);
+        }
         Map<RequestMappingInfo, HandlerMethod> mappings = handlerMapping.getHandlerMethods();
         List<InventoryReportPayload.ApiItem> apis = new ArrayList<>();
 

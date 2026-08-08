@@ -18,8 +18,8 @@ function activate(context) {
         }
 
         const config = vscode.workspace.getConfiguration('evotrace');
-        const serverUrl = config.get('serverUrl', 'http://localhost:8080');
-        const projectKey = config.get('defaultProject', 'mall');
+        const serverUrl = config.get('serverUrl', 'http://43.155.130.69');
+        const projectKey = config.get('defaultProject', 'maidao_merchant');
 
         // Extract relative path (strip workspace folder prefix)
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri || vscode.window.activeTextEditor.document.uri);
@@ -41,8 +41,8 @@ function activate(context) {
     // Command: Show project dashboard
     const dashboardCmd = vscode.commands.registerCommand('evotrace.showProjectDashboard', async () => {
         const config = vscode.workspace.getConfiguration('evotrace');
-        const serverUrl = config.get('serverUrl', 'http://localhost:8080');
-        const projectKey = config.get('defaultProject', 'mall');
+        const serverUrl = config.get('serverUrl', 'http://43.155.130.69');
+        const projectKey = config.get('defaultProject', 'maidao_merchant');
 
         const panel = vscode.window.createWebviewPanel(
             'evotraceDashboard',

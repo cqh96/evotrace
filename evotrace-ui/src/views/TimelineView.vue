@@ -3,8 +3,9 @@ import { onMounted, ref, computed, watch } from 'vue'
 import { Clock } from '@element-plus/icons-vue'
 import { storeToRefs } from 'pinia'
 import FilterBar from '../components/FilterBar.vue'
+import FileHistoryDrawer from '../components/FileHistoryDrawer.vue'
 import PageCard from '../components/PageCard.vue'
-import { fileApi, timelineApi, type TimelineEvent } from '../api'
+import { timelineApi, type TimelineEvent } from '../api'
 import { useProjectStore } from '../stores/project'
 
 interface EventFile { path: string; kind: string; addLines: number; delLines: number }
@@ -25,8 +26,6 @@ const iterationLoading = ref(false)
 // 文件历史抽屉
 const fileDrawer = ref(false)
 const filePath = ref('')
-const fileHistory = ref<{ changeKind: string; addLines: number; delLines: number; commitSha?: string; occurredAt: string; summary?: string }[]>([])
-const fileLoading = ref(false)
 
 const typeMeta: Record<string, { label: string; color: string; icon: string }> = {
   RELEASE_TAG:    { label: '版本发布', color: '#f59e0b', icon: '🚀' },
@@ -71,14 +70,9 @@ async function openIteration(e: TimelineEvent) {
   } catch { iterationEvents.value = [] } finally { iterationLoading.value = false }
 }
 
-async function openFileHistory(path: string) {
+function openFileHistory(path: string) {
   filePath.value = path
   fileDrawer.value = true
-  fileLoading.value = true
-  try {
-    const data: any = await fileApi.history(path, filters.value.project)
-    fileHistory.value = data || []
-  } catch { fileHistory.value = [] } finally { fileLoading.value = false }
 }
 
 const eventFiles = (e: TimelineEvent): EventFile[] => e.files ?? []
@@ -87,11 +81,103 @@ const eventFiles = (e: TimelineEvent): EventFile[] => e.files ?? []
 watch(project, (v) => { filters.value.project = v; load() })
 
 onMounted(load)
+
+/* ===================== 展示层（不改动业务逻辑） ===================== */
+
+// 迷你标签类别映射（对应 global.css 的 .et-tag-*）
+const tagClassMap: Record<string, string> = {
+  RELEASE_TAG:     'et-tag-rel',
+  DEPLOY_RECORD:   'et-tag-rel',
+  MR_MERGED:       'et-tag-review',
+  CODE_COMMIT:     'et-tag-info',
+  CONFIG_CHANGE:   'et-tag-api',
+  DDL_CHANGE:      'et-tag-ddl',
+  INVENTORY_REPORT:'et-tag-info',
+  ITERATION_SYNC:  'et-tag-req'
+}
+const tagClass = (t: string) => tagClassMap[t] ?? 'et-tag-info'
+
+// 时间线圆点颜色 / 光晕（随事件类型）
+const dotColorMap: Record<string, string> = {
+  RELEASE_TAG: '#38e1ff', MR_MERGED: '#34d399', CODE_COMMIT: '#a5b0ff',
+  CONFIG_CHANGE: '#fbbf24', DDL_CHANGE: '#fb7185', DEPLOY_RECORD: '#38e1ff',
+  INVENTORY_REPORT: '#0ea5e9', ITERATION_SYNC: '#a78bfa'
+}
+const dotGlowMap: Record<string, string> = {
+  RELEASE_TAG: 'rgba(56,225,255,.5)', MR_MERGED: 'rgba(52,211,153,.5)', CODE_COMMIT: 'rgba(165,176,255,.5)',
+  CONFIG_CHANGE: 'rgba(251,191,36,.45)', DDL_CHANGE: 'rgba(251,113,133,.45)', DEPLOY_RECORD: 'rgba(56,225,255,.5)',
+  INVENTORY_REPORT: 'rgba(14,165,233,.45)', ITERATION_SYNC: 'rgba(167,139,250,.5)'
+}
+const dotColor = (t: string) => dotColorMap[t] ?? '#6d7cff'
+const dotGlow = (t: string) => dotGlowMap[t] ?? 'rgba(109,124,255,.5)'
+
+// 事件标题（类型 + 应用上下文）
+const titleOf = (e: TimelineEvent) => {
+  const label = typeMeta[e.eventType]?.label ?? e.eventType
+  return e.appKey ? `${label} · ${e.appKey}` : label
+}
+
+// 相对时间
+function relativeTime(iso?: string): string {
+  if (!iso) return ''
+  const t = new Date(iso).getTime()
+  if (Number.isNaN(t)) return iso
+  const diff = Date.now() - t
+  const min = 60e3, hour = 3600e3, day = 86400e3
+  if (diff < min) return '刚刚'
+  if (diff < hour) return Math.floor(diff / min) + ' 分钟前'
+  if (diff < day) return Math.floor(diff / hour) + ' 小时前'
+  if (diff < 2 * day) return '昨天'
+  if (diff < 30 * day) return Math.floor(diff / day) + ' 天前'
+  return iso.substring(0, 10)
+}
+
+// Hero 概览统计
+const totalEvents = computed(() => events.value.length)
+const todayCount = computed(() => {
+  const now = new Date()
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  return events.value.filter((e) => (e.occurredAt ?? '').startsWith(today)).length
+})
+const releaseCount = computed(() => events.value.filter((e) => e.eventType === 'RELEASE_TAG').length)
+const iterationCount = computed(() => new Set(events.value.filter((e) => e.iterationId).map((e) => e.iterationId)).size)
 </script>
 
 <template>
-  <div>
-    <FilterBar :loading="loading" @search="load">
+  <div class="page">
+    <!-- ======== 概览 Hero ======== -->
+    <section class="et-hero rise" style="--d:.02s">
+      <div class="hero-left">
+        <h2>演化时间线 <span class="et-grad-text">Timeline</span></h2>
+        <p class="et-hero-sub">全链路变更历史 · 发布、合并、提交、配置与部署事件自动归集</p>
+      </div>
+
+      <div v-if="events.length" class="hero-stats">
+        <div class="h-chip">
+          <span class="h-lbl">今日变更</span>
+          <b class="h-num h-grad">{{ todayCount }}</b>
+        </div>
+        <div class="h-chip">
+          <span class="h-lbl">总事件</span>
+          <b class="h-num">{{ totalEvents }}</b>
+        </div>
+        <div class="h-chip">
+          <span class="h-lbl">版本发布</span>
+          <b class="h-num">{{ releaseCount }}</b>
+        </div>
+        <div class="h-chip">
+          <span class="h-lbl">关联迭代</span>
+          <b class="h-num">{{ iterationCount }}</b>
+        </div>
+      </div>
+      <div v-else class="hero-stats static">
+        <el-icon :size="14"><Clock /></el-icon>
+        <span>选择项目后查看全链路演化动态</span>
+      </div>
+    </section>
+
+    <!-- ======== 筛选栏 ======== -->
+    <FilterBar :loading="loading" @search="load" class="rise" style="--d:.08s">
       <el-form-item label="项目"><el-input v-model="filters.project" style="width: 150px" /></el-form-item>
       <el-form-item label="应用"><el-input v-model="filters.app" placeholder="全部" style="width: 150px" /></el-form-item>
       <el-form-item label="类型">
@@ -101,57 +187,63 @@ onMounted(load)
       </el-form-item>
     </FilterBar>
 
-    <PageCard no-padding style="margin-top: 16px" v-loading="loading">
-      <el-alert v-if="error" type="warning" :closable="false" style="margin: 12px" />
+    <!-- ======== 时间线 ======== -->
+    <PageCard no-padding class="tl-card rise" style="--d:.16s" v-loading="loading">
+      <el-alert v-if="error" :title="error" type="warning" :closable="false" show-icon style="margin: 16px" />
+
       <el-empty v-if="!loading && events.length === 0" description="暂无演化事件" :image-size="80" />
 
       <div v-else class="timeline-wrap">
         <div v-for="group in groupedEvents" :key="group.date" class="date-group">
           <div class="date-header">
-            <el-icon :size="14"><Clock /></el-icon>
+            <span class="dh-dot"></span>
             <span>{{ group.date }}</span>
             <span class="date-count">{{ group.items.length }} 个事件</span>
           </div>
 
-          <div class="events">
-            <div v-for="e in group.items" :key="e.eventId" class="event-item">
-              <div class="event-dot" :style="{ background: typeMeta[e.eventType]?.color ?? '#94a3b8' }">
-                {{ typeMeta[e.eventType]?.icon ?? '📌' }}
+          <div class="tl">
+            <div v-for="e in group.items" :key="e.eventId" class="tl-item"
+                 :style="{ '--dot-color': dotColor(e.eventType), '--dot-glow': dotGlow(e.eventType) }">
+              <div class="tl-main">
+                <span class="et-mini-tag" :class="tagClass(e.eventType)">
+                  {{ typeMeta[e.eventType]?.label ?? e.eventType }}
+                </span>
+                <span class="tl-title">{{ titleOf(e) }}</span>
+                <span class="tl-time">{{ relativeTime(e.occurredAt) }}</span>
               </div>
-              <div class="event-line" />
 
-              <div class="event-card">
-                <div class="event-card-head">
-                  <el-tag size="small" :color="typeMeta[e.eventType]?.color ?? '#94a3b8'" effect="dark" class="event-type-tag">
-                    {{ typeMeta[e.eventType]?.label ?? e.eventType }}
-                  </el-tag>
-                  <span v-if="e.appKey" class="event-app">{{ e.appKey }}</span>
-                  <code v-if="e.commitSha" class="event-sha">{{ e.commitSha?.substring(0, 7) }}</code>
-                  <span class="event-time">{{ e.occurredAt?.substring(11, 16) }}</span>
-                  <span class="event-author">{{ e.author }}</span>
-                </div>
+              <div class="tl-meta">
+                <el-icon :size="12" class="tl-clock-ic"><Clock /></el-icon>
+                <span class="tl-clock">{{ e.occurredAt?.substring(11, 16) }}</span>
+                <template v-if="e.commitSha">
+                  <span class="tl-sep"></span>
+                  <code class="tl-sha">{{ e.commitSha.substring(0, 7) }}</code>
+                </template>
+                <span v-if="e.author" class="tl-sep"></span>
+                <span v-if="e.author" class="tl-author">{{ e.author }}</span>
+              </div>
 
-                <div v-if="e.summaryStatus === 'DONE'" class="event-summary">
-                  <span class="ai-badge">AI</span> {{ e.summary }}
-                </div>
-                <div v-else-if="e.summaryStatus === 'PENDING'" class="event-summary pending">AI 摘要生成中…</div>
+              <div v-if="e.summaryStatus === 'DONE'" class="tl-sum">
+                <span class="ai-badge">AI</span>{{ e.summary }}
+              </div>
+              <div v-else-if="e.summaryStatus === 'PENDING'" class="tl-sum pending">AI 摘要生成中…</div>
 
-                <div v-if="e.iterationTitle" class="event-iteration">
-                  <el-link type="primary" :underline="false" style="font-size: 12px" @click="openIteration(e)">
-                    📋 {{ e.iterationTitle }}
-                  </el-link>
-                </div>
+              <div v-if="e.iterationTitle" class="tl-iter">
+                <el-link type="primary" :underline="false" @click="openIteration(e)">
+                  <el-icon :size="12" style="margin-right: 4px"><Clock /></el-icon>
+                  {{ e.iterationTitle }}
+                </el-link>
+              </div>
 
-                <div v-if="eventFiles(e).length" class="event-files">
-                  <el-tag v-for="f in eventFiles(e).slice(0, 6)" :key="f.path" size="small"
-                          type="info" effect="plain" class="file-chip" @click="openFileHistory(f.path)">
-                    {{ f.path }}
-                    <span class="file-delta" :class="{ add: f.addLines, del: f.delLines }">
-                      +{{ f.addLines }}/-{{ f.delLines }}
-                    </span>
-                  </el-tag>
-                  <span v-if="eventFiles(e).length > 6" class="file-more">等 {{ eventFiles(e).length }} 个文件</span>
-                </div>
+              <div v-if="eventFiles(e).length" class="tl-files">
+                <el-tag v-for="f in eventFiles(e).slice(0, 6)" :key="f.path" size="small"
+                        type="info" effect="plain" class="file-chip" @click="openFileHistory(f.path)">
+                  {{ f.path }}
+                  <span class="file-delta" :class="{ add: f.addLines, del: f.delLines }">
+                    +{{ f.addLines }}/-{{ f.delLines }}
+                  </span>
+                </el-tag>
+                <span v-if="eventFiles(e).length > 6" class="file-more">等 {{ eventFiles(e).length }} 个文件</span>
               </div>
             </div>
           </div>
@@ -173,91 +265,182 @@ onMounted(load)
       </div>
     </el-drawer>
 
-    <!-- 文件历史抽屉 -->
-    <el-drawer v-model="fileDrawer" :title="'文件历史：' + filePath" size="640px" v-loading="fileLoading">
-      <el-empty v-if="!fileLoading && fileHistory.length === 0" description="暂无该文件的历史记录" :image-size="70" />
-      <el-table v-else :data="fileHistory" stripe>
-        <el-table-column prop="occurredAt" label="时间" width="180" />
-        <el-table-column prop="changeKind" label="变更" width="110" />
-        <el-table-column label="增减" width="120">
-          <template #default="{ row }">
-            <span class="add">+{{ row.addLines }}</span> / <span class="del">-{{ row.delLines }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="commitSha" label="提交" width="110" />
-        <el-table-column prop="summary" label="AI 摘要" min-width="200" show-overflow-tooltip />
-      </el-table>
-    </el-drawer>
+    <FileHistoryDrawer v-model="fileDrawer" :path="filePath" :project-key="filters.project" />
   </div>
 </template>
 
 <style scoped>
-.timeline-wrap { padding: 20px }
+.page {
+  position: relative;
+}
 
-.date-group { margin-bottom: 24px }
-.date-group:last-child { margin-bottom: 0 }
+/* ======== Hero 概览 ======== */
+.hero-left { position: relative; z-index: 1; }
+.hero-stats {
+  position: relative; z-index: 1;
+  display: flex; align-items: center; gap: 10px;
+  margin-left: auto; flex-wrap: wrap;
+}
+.h-chip {
+  min-width: 88px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: var(--et-bg-muted);
+  border: 1px solid var(--et-border);
+  display: flex; flex-direction: column; gap: 3px;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+.h-chip:hover {
+  border-color: var(--et-hover-border);
+  transform: translateY(-2px);
+  box-shadow: var(--et-shadow-sm);
+}
+.h-lbl { font-size: 10.5px; color: var(--et-text-muted); font-weight: 500; }
+.h-num {
+  font-size: 21px; font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--et-text);
+}
+.h-chip .h-grad {
+  background: linear-gradient(90deg, var(--et-grad-a), var(--et-grad-b), var(--et-grad-c));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero-stats.static {
+  padding: 9px 16px;
+  border-radius: 12px;
+  background: var(--et-bg-muted);
+  border: 1px dashed var(--et-border);
+  font-size: 12.5px; color: var(--et-text-muted);
+  display: inline-flex; align-items: center; gap: 7px;
+}
+@media (max-width: 980px) {
+  .hero-stats { margin-left: 0; margin-top: 16px; }
+}
+
+/* ======== 时间线 ======== */
+.timeline-wrap { padding: 6px 22px 22px; }
+
+.date-group { margin-bottom: 6px; }
+.date-group:last-child { margin-bottom: 0; }
 
 .date-header {
   display: flex; align-items: center; gap: 8px;
-  padding: 6px 0 12px; color: var(--et-text-secondary); font-size: 13px; font-weight: 600
+  padding: 12px 0 8px;
+  color: var(--et-text-secondary); font-size: 12.5px; font-weight: 700;
 }
-.date-count { color: var(--et-text-muted); font-weight: 400; font-size: 12px }
-
-.events { position: relative; padding-left: 32px }
-
-.event-item { position: relative; padding-bottom: 16px }
-.event-item:last-child { padding-bottom: 0 }
-.event-item:last-child .event-line { display: none }
-
-.event-dot {
-  position: absolute; left: -32px; top: 8px;
-  width: 26px; height: 26px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px; z-index: 1; border: 2px solid var(--et-card-bg);
+.dh-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-c));
+  box-shadow: 0 0 9px var(--et-glow);
+  flex-shrink: 0;
+}
+.date-count {
+  margin-left: auto;
+  color: var(--et-text-muted); font-weight: 400; font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
 }
 
-.event-line {
-  position: absolute; left: -19px; top: 38px;
-  width: 2px; height: calc(100% - 22px);
-  background: var(--et-border);
+/* 渐变竖轨 + 发光圆点（参考 mock-dashboard .tl） */
+.tl { position: relative; padding-left: 24px; }
+.tl::before {
+  content: '';
+  position: absolute; left: 8px; top: 10px; bottom: 10px; width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--et-grad-a), var(--et-grad-b), var(--et-grad-c));
+  opacity: 0.45;
+}
+.tl-item { position: relative; padding: 11px 0 14px; }
+.tl-item:last-child { padding-bottom: 4px; }
+.tl-item::before {
+  content: '';
+  position: absolute; left: -23px; top: 17px;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--et-card-solid);
+  border: 2.5px solid var(--dot-color, var(--et-primary));
+  box-shadow: 0 0 12px var(--dot-glow, var(--et-glow));
 }
 
-.event-card {
-  background: var(--et-card-bg); border: 1px solid var(--et-border);
-  border-radius: 10px; padding: 14px 16px; margin-left: 4px;
-  transition: box-shadow 0.15s;
+.tl-main { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.tl-title { font-size: 13.5px; font-weight: 600; color: var(--et-text); }
+.tl-time {
+  margin-left: auto;
+  font-size: 11.5px; color: var(--et-text-muted);
+  flex-shrink: 0; font-variant-numeric: tabular-nums;
 }
-.event-card:hover { box-shadow: var(--et-shadow) }
 
-.event-card-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
-.event-type-tag { border: none !important; font-size: 11px }
-.event-app { font-weight: 600; font-size: 13px; color: var(--et-text) }
-.event-sha { background: var(--et-page-bg); padding: 2px 6px; border-radius: 4px; font-size: 11px; color: var(--et-text-secondary); font-family: monospace }
-.event-time { color: var(--et-text-muted); font-size: 12px; margin-left: auto }
-.event-author { color: var(--et-text-muted); font-size: 12px }
+.tl-meta {
+  display: flex; align-items: center; gap: 7px;
+  margin-top: 5px;
+  font-size: 11.5px; color: var(--et-text-muted);
+  flex-wrap: wrap;
+}
+.tl-clock-ic { color: var(--et-text-muted); }
+.tl-clock { font-variant-numeric: tabular-nums; }
+.tl-sep { width: 3px; height: 3px; border-radius: 50%; background: var(--et-text-muted); opacity: 0.5; }
+.tl-sha {
+  font-family: monospace; font-size: 10.5px;
+  background: var(--et-bg-muted);
+  border: 1px solid var(--et-border);
+  padding: 1.5px 6px; border-radius: 6px;
+  color: var(--et-text-secondary);
+}
+.tl-author { color: var(--et-text-secondary); }
 
-.event-summary { margin-top: 8px; font-size: 13px; color: var(--et-text-secondary); line-height: 1.6 }
-.event-summary.pending { color: var(--et-text-muted); font-style: italic }
+/* DDL 变更专属迷你标签 */
+.tl-item .et-tag-ddl {
+  color: var(--et-danger);
+  background: rgba(251, 113, 133, 0.13);
+}
+
+/* AI 摘要 */
+.tl-sum {
+  margin-top: 9px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: var(--et-bg-muted);
+  border: 1px solid var(--et-border);
+  border-left: 2px solid var(--et-grad-b);
+  font-size: 12.5px; color: var(--et-text-secondary); line-height: 1.65;
+}
+.tl-sum.pending {
+  color: var(--et-text-muted);
+  font-style: italic;
+  border-left-color: var(--et-warn);
+}
 .ai-badge {
-  display: inline-block; background: linear-gradient(135deg, #f59e0b, #e94d0b);
-  color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-right: 4px
+  display: inline-flex; align-items: center;
+  margin-right: 6px;
+  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b));
+  color: #fff; font-size: 10px; font-weight: 700;
+  padding: 1.5px 7px; border-radius: 5px;
+  vertical-align: 1px;
 }
 
-.event-iteration { margin-top: 6px }
+/* 迭代链接 */
+.tl-iter { margin-top: 8px; }
+.tl-iter :deep(.el-link) { font-size: 12px; }
 
-.event-files { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center }
-.file-chip { cursor: pointer; font-family: monospace; font-size: 11px }
-.file-chip:hover { border-color: var(--el-color-primary); color: var(--el-color-primary) }
-.file-delta { margin-left: 4px; font-size: 10px; color: var(--et-text-muted) }
-.file-delta.add { color: #10b981 }
-.file-delta.del { color: #ef4444 }
-.file-more { font-size: 11px; color: var(--et-text-muted) }
+/* 文件 chips */
+.tl-files { margin-top: 9px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.file-chip { cursor: pointer; font-family: monospace; font-size: 11px; }
+.file-chip:hover { border-color: var(--el-color-primary); color: var(--el-color-primary); }
+.file-delta { margin-left: 4px; font-size: 10px; color: var(--et-text-muted); font-variant-numeric: tabular-nums; }
+.file-delta.add { color: var(--et-ok); }
+.file-delta.del { color: var(--et-danger); }
+.file-more { font-size: 11px; color: var(--et-text-muted); }
 
-.iteration-events { display: flex; flex-direction: column; gap: 12px }
-.iteration-event { border: 1px solid var(--et-border); border-radius: 8px; padding: 10px 12px }
-.iteration-event-time { margin-left: 8px; font-size: 12px; color: var(--et-text-muted) }
-.iteration-event-summary { margin-top: 6px; font-size: 13px; color: var(--et-text-secondary); line-height: 1.6 }
+/* 迭代抽屉 */
+.iteration-events { display: flex; flex-direction: column; gap: 12px; }
+.iteration-event {
+  border: 1px solid var(--et-border);
+  border-radius: 12px;
+  padding: 11px 13px;
+  background: var(--et-bg-muted);
+}
+.iteration-event-time { margin-left: 8px; font-size: 12px; color: var(--et-text-muted); }
+.iteration-event-summary { margin-top: 6px; font-size: 13px; color: var(--et-text-secondary); line-height: 1.6; }
 
-.add { color: #10b981 }
-.del { color: #ef4444 }
+.add { color: var(--et-ok); }
+.del { color: var(--et-danger); }
 </style>

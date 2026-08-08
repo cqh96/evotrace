@@ -31,4 +31,20 @@ public class SignatureVerifier {
             return false;
         }
     }
+
+    /**
+     * Sign the given body with the API secret, returning the hex HMAC-SHA256.
+     * Mirror of {@link #verify} — used by the diagnostics self-check to produce
+     * a signature for its own sample request.
+     */
+    public String sign(String body, String apiSecret) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            SecretKeySpec spec = new SecretKeySpec(apiSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+            mac.init(spec);
+            return HexFormat.of().formatHex(mac.doFinal(body.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            throw new IllegalStateException("HMAC 签名失败", e);
+        }
+    }
 }

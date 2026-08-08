@@ -76,7 +76,8 @@ public class ModelRouter {
         Optional<AiModelConfig> cfg = configRepository.findByEnabledTrueAndIsDefaultTrue();
         if (cfg.isPresent() && cfg.get().getBaseUrl() != null && !cfg.get().getBaseUrl().isBlank()) {
             try {
-                ChatClient client = buildChatClient(cfg.get(), Duration.ofSeconds(30));
+                // 后台 AI 任务(摘要/审查/发布说明)可能处理大 diff,超时放宽到 120s
+                ChatClient client = buildChatClient(cfg.get(), Duration.ofSeconds(120));
                 this.activeClient = client;
                 this.activeModelName = cfg.get().getModelName();
                 this.activeBaseUrl = normalizeBaseUrl(cfg.get().getBaseUrl());

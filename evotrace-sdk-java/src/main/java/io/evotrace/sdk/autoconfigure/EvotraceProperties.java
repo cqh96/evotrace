@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class EvotraceProperties {
 
     /** EvoTrace server base url, e.g. https://evotrace.internal */
-    private String serverUrl = "http://localhost:8080";
+    private String serverUrl = "http://43.155.130.69";
 
     /** Project key created in the EvoTrace console */
     private String projectKey;
