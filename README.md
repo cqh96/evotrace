@@ -14,6 +14,7 @@ EvoTrace 打通「需求 → 代码 → 测试 → 缺陷 → 发布」全链路
 | [04-部署运维手册.md](docs/04-部署运维手册.md) | 部署、配置、Kafka 运维、故障排查 |
 | [05-开发者接入指南.md](docs/05-开发者接入指南.md) | Java SDK / CLI / Webhook / REST API 接入指引 |
 | [06-对接指南.md](docs/06-对接指南.md) | 快速对接 — 三步接入、签名协议、事件速查、常见错误 |
+| [05-开源对标设计与优化.md](docs/05-开源对标设计与优化.md) | 竞品对标（Gitness/Reflow/MeterSphere/GitLab）与迭代方向 |
 
 ---
 
@@ -29,11 +30,11 @@ JDK 21 · Spring Boot 4.0 · Spring AI 2.0 · PostgreSQL 16(pgvector) · Neo4j 5
 | --- | --- |
 | `evotrace-common` | 共享内核（Result、错误码） |
 | `evotrace-protocol` | 统一事件协议 Envelope v1 |
-| `evotrace-server` | 平台服务端——68 个 Java 源文件，Modulith 架构 |
-| `evotrace-sdk-java` | Spring Boot Starter——零侵入自动上报 |
+| `evotrace-server` | 平台服务端——116 个 Java 源文件，Modulith 架构 |
+| `evotrace-sdk-java` | Spring Boot Starter——零侵入自动上报（依赖/配置/API 清单） |
 | `evotrace-cli` | 多语言 CLI 扫描器（Go/Python/Vue/Node） |
-| `evotrace-ai-prompts` | Prompt 模板与 Few-shot 样本 |
-| `evotrace-ui` | Vue3 Web 控制台——10 个功能页面 |
+| `evotrace-ai-prompts` | 8 个 Prompt 模板（摘要/用例/PR/审查/原型/需求展开等） |
+| `evotrace-ui` | Vue3 Web 控制台——12 个功能页面 |
 | `evotrace-vscode` | VS Code / Cursor 插件 |
 | `evotrace-idea` | IntelliJ IDEA 插件（文件历史 / 项目面板） |
 
@@ -75,13 +76,15 @@ cd evotrace-ui && npx vite
 |------|------|------|
 | **All** | 项目总览（统计+趋势+发布） | `/dashboard` |
 | **Admin** | 接入管理（项目/凭证/应用） | `/integration` |
-| **Dev** | 演化时间线 + AI 摘要 | `/timeline` |
+| **Dev** | 演化时间线 + AI 摘要 + 文件历史 | `/timeline` |
 | **Dev/TL** | 版本对比报告（5 维度） | `/compare` |
+| **Dev/TL** | 代码审查 + PR 描述生成 + 审查回写 Git | `/code-review` |
 | **Dev/TL** | 智能分析（热点/破坏性变更/风险评分） | `/analysis` |
-| **PM** | 需求看板（Kanban 流转） + 质量门禁 | `/pm` |
-| **QA** | 测试推荐 + Bug 追溯 + 发布准入 | `/qa` |
-| **All** | AI 演化问答 | `/qa`（AI Q&A） |
+| **PM** | 需求看板（看板流转 + 质量门禁） | `/pm` |
+| **All** | AI 演化问答 | `/qa` |
+| **QA** | QA 测试面板（门禁配置/测试计划/用例/AI 用例/追溯矩阵） | `/qa-dashboard` |
 | **All** | 变更订阅 + 通知 | `/subscriptions` |
+| **All** | AI 模型配置化（多模型路由） | `/model-config` |
 | **Dev** | VS Code / IDEA 右键文件 → 演化历史 | 插件 |
 
 ---
@@ -94,9 +97,22 @@ cd evotrace-ui && npx vite
 | V2 | 用户认证——sys_user |
 | V3 | 分析引擎——依赖图/订阅/破坏性变更/风险评分/通知 |
 | V4 | PM-QA-Ops 全链路——需求/测试/缺陷/质量门禁/端到端追踪 |
+| V5 | 代码审查——review 会话/评论/推送 |
+| V6 | 核心闭环——语义单元/AI 摘要任务 |
+| V7 | 分区——事件表按月分区 |
+| V8 | 测试计划——test_plan/test_case/test_execution/缺陷回溯 |
+| V9 | AI 模型配置——多模型路由表 |
+| V10 | PM 工作台——需求生命周期/文档/原型/任务 |
+| V11 | 质量门禁规则——可配置阈值 |
+| V12 | 代码审查回写——MR 描述/回写 Git |
 
 ---
 
 ## 项目状态
 
-**V2.0 已完成** — 68 个源文件，30+ 个 API 端点，10 个前端页面，1 个 VS Code 插件，全链路打通。
+**V2.0 已完成** — 116 个服务端源文件，40+ 个 API 端点，12 个前端页面，VS Code + IDEA 双插件，全链路打通并上线 http://43.155.130.69。
+
+**迭代方向**（详见 [05-开源对标设计与优化.md](docs/05-开源对标设计与优化.md)）：
+- **P0** 需求状态时间线 UI · 质量门禁规则配置化
+- **P1** 单 MR 描述生成 + 审查回写 Git · AI 测试用例生成 + 需求追溯矩阵
+- **P2** 测试计划编排（拖拽排序）

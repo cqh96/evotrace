@@ -702,7 +702,7 @@ onMounted(loadAll)
                 <template #default="{ data }">
                   <span class="tree-node">
                     <span class="node-dot" :class="data.nodeType === 'MODULE' ? 'node-mod' : 'node-case'"></span>
-                    <span>{{ data.title }}</span>
+                    <span class="tree-title">{{ data.title }}</span>
                     <span v-if="data.nodeType === 'MODULE'" class="tree-count">{{ data.childCount }}</span>
                   </span>
                 </template>
@@ -1675,6 +1675,14 @@ onMounted(loadAll)
   font-size: 13px;
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+}
+.tree-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .node-dot {
   width: 7px;
