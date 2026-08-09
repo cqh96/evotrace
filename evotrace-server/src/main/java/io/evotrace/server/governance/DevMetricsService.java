@@ -127,11 +127,11 @@ public class DevMetricsService {
     /** 需求状态分布 + 各状态平均驻留天数。 */
     public List<Map<String, Object>> requirementFlow(Long projectId) {
         return jdbc.queryForList("""
-                SELECT status, count(*) AS "entries",
-                       round(avg(extract(epoch FROM (coalesce(left_at, now()) - entered_at)) / 86400.0), 1) AS "avgDays"
+                SELECT h.status AS "status", count(*) AS "entries",
+                       round(avg(extract(epoch FROM (coalesce(h.left_at, now()) - h.entered_at)) / 86400.0), 1) AS "avgDays"
                 FROM requirement_status_history h
                 JOIN requirement r ON r.id = h.requirement_id AND r.project_id = ?
-                GROUP BY status ORDER BY status
+                GROUP BY h.status ORDER BY h.status
                 """, projectId);
     }
 
