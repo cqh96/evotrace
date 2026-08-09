@@ -1,6 +1,8 @@
 package io.evotrace.server.testplan;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.evotrace.server.api.ApiRepository;
+import io.evotrace.server.api.ApiScenarioService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,18 +50,27 @@ public class TestExecutionRunner {
 
     private final JdbcTemplate jdbc;
     private final TestExecutionService executionService;
+    private final AssertionEvaluator assertionEvaluator;
+    private final ApiScenarioService scenarioService;
+    private final ApiRepository apiRepository;
     private final HttpClient httpClient;
     private final long stepTimeoutMs;
     private final int maxResponseChars;
     private final int maxSteps;
 
     public TestExecutionRunner(JdbcTemplate jdbc, TestExecutionService executionService,
+                               AssertionEvaluator assertionEvaluator,
+                               ApiScenarioService scenarioService,
+                               ApiRepository apiRepository,
                                @Value("${evotrace.test-executor.request-timeout-ms:8000}") long stepTimeoutMs,
                                @Value("${evotrace.test-executor.insecure-tls:true}") boolean insecureTls,
                                @Value("${evotrace.test-executor.max-response-chars:2000}") int maxResponseChars,
                                @Value("${evotrace.test-executor.max-steps:20}") int maxSteps) {
         this.jdbc = jdbc;
         this.executionService = executionService;
+        this.assertionEvaluator = assertionEvaluator;
+        this.scenarioService = scenarioService;
+        this.apiRepository = apiRepository;
         this.stepTimeoutMs = stepTimeoutMs;
         this.maxResponseChars = maxResponseChars;
         this.maxSteps = maxSteps;
@@ -111,7 +122,7 @@ public class TestExecutionRunner {
             throw new IllegalArgumentException("用例步骤数超过上限 " + maxSteps + "，无法在服务端执行");
         }
 
-        CaseRun run = executeSteps(steps);
+        CaseRun run = executeSteps(steps, null);
         Map<String, Object> result = buildCaseResult(row, run);
 
         Map<String, Object> data = new LinkedHashMap<>();
@@ -129,18 +140,21 @@ public class TestExecutionRunner {
     /** 执行整个计划：DRAFT 自动转 RUNNING，逐项执行（不可执行标记 SKIPPED 带原因）。 */
     public Map<String, Object> runPlan(Long projectId, Long planId, Map<String, Object> req) {
         Map<String, Object> plan = jdbc.queryForMap(
-                "SELECT id, name, status FROM test_plan WHERE id = ? AND project_id = ?", planId, projectId);
+                "SELECT id, name, status, environment_id AS \"environmentId\" FROM test_plan WHERE id = ? AND project_id = ?",
+                planId, projectId);
         if ("DONE".equals(plan.get("status"))) {
             throw new IllegalArgumentException("已完成计划不可再执行");
         }
         if ("DRAFT".equals(plan.get("status"))) {
             jdbc.update("UPDATE test_plan SET status = 'RUNNING', updated_at = now() WHERE id = ?", planId);
         }
+        Long environmentId = plan.get("environmentId") != null
+                ? ((Number) plan.get("environmentId")).longValue() : null;
 
         List<Map<String, Object>> items = jdbc.queryForList("""
-                SELECT pi.id AS "itemId", pi.test_case_id AS "testCaseId", pi.sort_order AS "sortOrder",
-                       tc.title, tc.steps
-                FROM test_plan_item pi JOIN test_case tc ON tc.id = pi.test_case_id
+                SELECT pi.id AS "itemId", pi.test_case_id AS "testCaseId", pi.item_type AS "itemType",
+                       pi.scenario_id AS "scenarioId", pi.sort_order AS "sortOrder", tc.title, tc.steps
+                FROM test_plan_item pi LEFT JOIN test_case tc ON tc.id = pi.test_case_id
                 WHERE pi.plan_id = ? ORDER BY pi.sort_order, pi.id
                 """, planId);
 
@@ -149,16 +163,36 @@ public class TestExecutionRunner {
         int passed = 0, failed = 0, skipped = 0;
         for (Map<String, Object> item : items) {
             Long itemId = ((Number) item.get("itemId")).longValue();
-            Long testCaseId = ((Number) item.get("testCaseId")).longValue();
-            String title = (String) item.get("title");
-            List<Map<String, Object>> steps = parseSteps((String) item.get("steps"));
+            String itemType = String.valueOf(item.getOrDefault("itemType", "CASE"));
+            String title = item.get("title") != null ? String.valueOf(item.get("title")) : "场景";
 
             Map<String, Object> itemResult = new LinkedHashMap<>();
             itemResult.put("itemId", itemId);
-            itemResult.put("testCaseId", testCaseId);
+            itemResult.put("itemType", itemType);
             itemResult.put("title", title);
 
             Map<String, Object> data = new LinkedHashMap<>();
+            if ("SCENARIO".equals(itemType)) {
+                Long scenarioId = ((Number) item.get("scenarioId")).longValue();
+                Map<String, Object> scResult = (Map<String, Object>) scenarioService.run(projectId, scenarioId, environmentId, null);
+                String verdict = String.valueOf(scResult.getOrDefault("verdict", "FAILED"));
+                if ("PASSED".equals(verdict)) passed++; else failed++;
+                itemResult.put("scenarioId", scenarioId);
+                itemResult.put("verdict", verdict);
+                itemResult.put("durationMs", scResult.get("durationMs"));
+                itemResult.put("steps", scResult.get("steps"));
+                data.put("testCaseId", null);
+                data.put("executor", currentUser());
+                data.put("status", verdict);
+                data.put("resultDetail", writeJson(itemResult));
+                executionService.record(projectId, data);
+                results.add(itemResult);
+                continue;
+            }
+
+            Long testCaseId = ((Number) item.get("testCaseId")).longValue();
+            itemResult.put("testCaseId", testCaseId);
+            List<Map<String, Object>> steps = parseSteps((String) item.get("steps"));
             data.put("testCaseId", testCaseId);
             data.put("planItemId", itemId);
             data.put("executor", currentUser());
@@ -180,7 +214,7 @@ public class TestExecutionRunner {
                 data.put("status", "SKIPPED");
                 data.put("resultDetail", writeJson(itemResult));
             } else {
-                CaseRun run = executeSteps(steps);
+                CaseRun run = executeSteps(steps, environmentId);
                 if ("PASSED".equals(run.verdict())) passed++;
                 else failed++;
                 Map<String, Object> caseResult = new LinkedHashMap<>();
@@ -217,7 +251,8 @@ public class TestExecutionRunner {
     // ==================== 执行引擎 ====================
 
     /** 逐步执行（fail-fast：首败即停，剩余步骤标 SKIPPED）。 */
-    private CaseRun executeSteps(List<Map<String, Object>> steps) {
+    private CaseRun executeSteps(List<Map<String, Object>> steps, Long environmentId) {
+        Map<String, Object> env = buildEnvContext(environmentId);
         long started = System.nanoTime();
         List<Map<String, Object>> stepResults = new ArrayList<>();
         String verdict = "PASSED";
@@ -230,7 +265,7 @@ public class TestExecutionRunner {
             }
             Map<String, Object> stepResult;
             try {
-                stepResult = executeHttpStep(steps.get(i), i);
+                stepResult = executeHttpStep(steps.get(i), i, env);
             } catch (Exception e) {
                 log.warn("step execution error: index={} error={}", i, e.getMessage());
                 stepResult = failedStep(steps.get(i), i, e.getMessage());
@@ -246,13 +281,37 @@ public class TestExecutionRunner {
                 passedCount + "/" + total + " 步骤通过", stepResults);
     }
 
+    /** 从环境构建变量替换上下文：baseUrl + 全局变量；无环境时为空。 */
+    private Map<String, Object> buildEnvContext(Long environmentId) {
+        Map<String, Object> ctx = new LinkedHashMap<>();
+        if (environmentId == null) return ctx;
+        ApiRepository.Environment env = apiRepository.findEnvironment(environmentId);
+        if (env == null) return ctx;
+        if (env.baseUrl() != null) ctx.put("baseUrl", env.baseUrl());
+        if (env.variables() != null) ctx.putAll(env.variables());
+        return ctx;
+    }
+
+    /** ${var} 替换。 */
+    private String substitute(String text, Map<String, Object> ctx) {
+        if (text == null) return null;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\$\\{(\\w+)}").matcher(text);
+        StringBuilder sb = new StringBuilder();
+        while (m.find()) {
+            Object v = ctx.get(m.group(1));
+            m.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(v != null ? String.valueOf(v) : m.group(0)));
+        }
+        m.appendTail(sb);
+        return sb.toString();
+    }
+
     @SuppressWarnings("unchecked")
-    private Map<String, Object> executeHttpStep(Map<String, Object> step, int index) throws Exception {
+    private Map<String, Object> executeHttpStep(Map<String, Object> step, int index, Map<String, Object> env) throws Exception {
         String method = String.valueOf(step.getOrDefault("method", "GET")).toUpperCase();
         if (!HTTP_METHODS.contains(method)) {
             throw new IllegalArgumentException("不支持的 HTTP 方法: " + method);
         }
-        String url = String.valueOf(step.getOrDefault("url", "")).trim();
+        String url = substitute(String.valueOf(step.getOrDefault("url", "")).trim(), env);
         if (url.isBlank()) {
             throw new IllegalArgumentException("步骤缺少 url");
         }
@@ -267,10 +326,10 @@ public class TestExecutionRunner {
         Map<String, Object> headers = (Map<String, Object>) step.getOrDefault("headers", Map.of());
         for (Map.Entry<String, Object> e : headers.entrySet()) {
             if (e.getKey() != null && e.getValue() != null) {
-                rb.header(e.getKey(), String.valueOf(e.getValue()));
+                rb.header(e.getKey(), substitute(String.valueOf(e.getValue()), env));
             }
         }
-        String body = step.get("body") != null ? String.valueOf(step.get("body")) : "";
+        String body = step.get("body") != null ? substitute(String.valueOf(step.get("body")), env) : "";
         boolean hasBody = !body.isBlank();
         // 请求体存在且未显式声明 Content-Type 时默认 JSON
         boolean hasContentType = headers.keySet().stream().anyMatch(k -> "content-type".equalsIgnoreCase(String.valueOf(k)));
@@ -299,7 +358,9 @@ public class TestExecutionRunner {
         result.put("statusCode", resp.statusCode());
         result.put("durationMs", durationMs);
         result.put("responseSnippet", truncate(responseBody));
-        result.put("assertions", evaluateAssertions(step, resp.statusCode(), responseBody, durationMs));
+        result.put("assertions", assertionEvaluator.evaluate(
+                (List<Map<String, Object>>) step.getOrDefault("assertions", List.of()),
+                resp.statusCode(), responseBody, durationMs));
 
         List<?> assertionResults = (List<?>) result.get("assertions");
         boolean allPassed = assertionResults.stream()
@@ -323,55 +384,6 @@ public class TestExecutionRunner {
             result.put("error", String.join("；", reasons));
         }
         return result;
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<Map<String, Object>> evaluateAssertions(Map<String, Object> step, int statusCode,
-                                                         String body, long durationMs) {
-        List<Map<String, Object>> assertions = (List<Map<String, Object>>) step.getOrDefault("assertions", List.of());
-        List<Map<String, Object>> results = new ArrayList<>();
-        for (Object a : assertions) {
-            Map<String, Object> assertion = a instanceof Map<?, ?> m
-                    ? (Map<String, Object>) m : new LinkedHashMap<>();
-            String type = String.valueOf(assertion.getOrDefault("type", ""));
-            Object expected = assertion.get("expected");
-            Map<String, Object> r = new LinkedHashMap<>();
-            r.put("type", type);
-            r.put("expected", expected != null ? String.valueOf(expected) : "");
-            try {
-                switch (type) {
-                    case "statusCode" -> {
-                        boolean ok = statusCode == Integer.parseInt(String.valueOf(expected));
-                        r.put("passed", ok);
-                        r.put("message", "状态码 " + statusCode + (ok ? " = " : " ≠ ") + expected);
-                    }
-                    case "bodyContains" -> {
-                        boolean ok = expected != null && body.contains(String.valueOf(expected));
-                        r.put("passed", ok);
-                        r.put("message", ok ? "响应体包含: " + expected : "响应体缺少: " + expected);
-                    }
-                    case "bodyNotContains" -> {
-                        boolean ok = expected == null || !body.contains(String.valueOf(expected));
-                        r.put("passed", ok);
-                        r.put("message", ok ? "响应体不含: " + expected : "响应体意外包含: " + expected);
-                    }
-                    case "responseTimeMs" -> {
-                        boolean ok = durationMs <= Long.parseLong(String.valueOf(expected));
-                        r.put("passed", ok);
-                        r.put("message", "耗时 " + durationMs + "ms " + (ok ? "≤" : ">") + " " + expected + "ms");
-                    }
-                    default -> {
-                        r.put("passed", false);
-                        r.put("message", "未知断言类型: " + type);
-                    }
-                }
-            } catch (NumberFormatException e) {
-                r.put("passed", false);
-                r.put("message", "断言期望值非法: " + expected);
-            }
-            results.add(r);
-        }
-        return results;
     }
 
     // ==================== 结果构造 ====================

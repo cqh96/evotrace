@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Key, CopyDocument, Connection, RefreshRight, Monitor, Box } from '@element-plus/icons-vue'
 import { applicationApi, projectApi, credentialApi, type Project, type AppInfo } from '../api'
 
@@ -120,6 +120,24 @@ async function revokeCredential(id: number) {
   try { await credentialApi.revoke(credProject.value, id); ElMessage.success('已吊销'); showCredentials(credProject.value) } catch { ElMessage.error('吊销失败') }
 }
 
+/** 项目下线/停用或重新启用。停用后新事件将被拒绝。 */
+async function setProjectStatus(p: Project, status: string) {
+  const isActive = status === 'ACTIVE'
+  const tip = isActive
+    ? `重新启用项目「${p.name}」？启用后恢复接收上报事件。`
+    : `停用项目「${p.name}」？停用后将拒绝新的事件上报，现有数据保留。`
+  try {
+    await ElMessageBox.confirm(tip, isActive ? '重新启用项目' : '停用项目', {
+      type: isActive ? 'success' : 'warning', confirmButtonText: isActive ? '启用' : '停用'
+    })
+  } catch { return }
+  try {
+    await projectApi.setStatus(p.projectKey, status)
+    ElMessage.success(isActive ? '项目已启用' : '项目已停用')
+    load()
+  } catch { /* 错误提示由请求拦截器统一弹出 */ }
+}
+
 function copyToClipboard(text: string) {
   navigator.clipboard.writeText(text).then(() => ElMessage.success('已复制'))
 }
@@ -212,6 +230,14 @@ onMounted(load)
                   <el-button size="small" :icon="Connection"
                              :type="activeSdk === p.projectKey ? 'primary' : 'default'"
                              @click="toggleSdk(p.projectKey)">接入 SDK</el-button>
+                  <el-button
+                    v-if="p.status === 'ACTIVE'"
+                    size="small" type="warning" plain :icon="Monitor"
+                    @click="setProjectStatus(p, 'SUSPENDED')">停用</el-button>
+                  <el-button
+                    v-else
+                    size="small" type="success" plain :icon="Connection"
+                    @click="setProjectStatus(p, 'ACTIVE')">启用</el-button>
                 </div>
               </div>
 
@@ -292,7 +318,7 @@ onMounted(load)
       </el-steps>
       <div v-if="!created" class="dialog-body">
         <el-form label-width="80px">
-          <el-form-item label="标识"><el-input v-model="form.projectKey" placeholder="mall" /></el-form-item>
+          <el-form-item label="标识"><el-input v-model="form.projectKey" placeholder="如 my-project" /></el-form-item>
           <el-form-item label="名称"><el-input v-model="form.name" /></el-form-item>
           <el-form-item label="仓库"><el-input v-model="form.repoUrl" /></el-form-item>
         </el-form>

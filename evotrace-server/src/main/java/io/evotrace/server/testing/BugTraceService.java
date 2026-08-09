@@ -1,5 +1,6 @@
 package io.evotrace.server.testing;
 
+import io.evotrace.server.feishu.FeishuBitableService;
 import io.evotrace.server.jira.JiraSyncService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +15,7 @@ import java.util.Set;
 /**
  * Bug → Commit → Files → Test Cases traceability for QA.
  * Links bugs to the changes that fixed them and the changes that introduced them.
- * Also drives the bug lifecycle state machine and Jira bidirectional sync.
+ * Also drives the bug lifecycle state machine and Jira / Feishu bidirectional sync.
  */
 @Service
 public class BugTraceService {
@@ -33,10 +34,13 @@ public class BugTraceService {
 
     private final JdbcTemplate jdbc;
     private final JiraSyncService jiraSyncService;
+    private final FeishuBitableService feishuSyncService;
 
-    public BugTraceService(JdbcTemplate jdbc, JiraSyncService jiraSyncService) {
+    public BugTraceService(JdbcTemplate jdbc, JiraSyncService jiraSyncService,
+                           FeishuBitableService feishuSyncService) {
         this.jdbc = jdbc;
         this.jiraSyncService = jiraSyncService;
+        this.feishuSyncService = feishuSyncService;
     }
 
     /** List bugs with linked change counts */
@@ -131,8 +135,9 @@ public class BugTraceService {
             }
         }
 
-        // Jira push is best-effort (fails gracefully when not configured)
+        // Jira / Feishu push is best-effort (fails gracefully when not configured)
         jiraSyncService.pushNewBug(bugId);
+        feishuSyncService.pushNewBug(bugId);
         return Map.of("success", true, "id", bugId);
     }
 
@@ -151,6 +156,7 @@ public class BugTraceService {
             jdbc.update("UPDATE bug_ticket SET status = ?, updated_at = now() WHERE id = ?", toStatus, bugId);
         }
         jiraSyncService.pushStatus(bugId, toStatus); // best-effort
+        feishuSyncService.pushStatus(bugId, toStatus); // best-effort
     }
 
     /** 缺陷详情：基本信息 + 关联用例 + 关联变更追溯 */

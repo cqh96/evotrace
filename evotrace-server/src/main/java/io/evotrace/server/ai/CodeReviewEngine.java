@@ -152,10 +152,9 @@ public class CodeReviewEngine {
         // Build prompt for AI review
         String reviewPrompt = buildReviewPrompt(event, files, aiResult, diff);
 
-        // Call AI for structured review (skip if no API key configured)
+        // Call AI for structured review (skip if no usable model configured)
         CodeReviewResult result = null;
-        String apiKey = System.getenv("AI_API_KEY");
-        if (apiKey != null && !apiKey.isBlank() && !"sk-placeholder".equals(apiKey)) {
+        if (modelRouter.hasUsableModel()) {
             try {
                 ChatClient client = modelRouter.clientFor("CODE_REVIEW");
                 result = client.prompt().user(reviewPrompt).call().entity(CodeReviewResult.class);
@@ -163,7 +162,7 @@ public class CodeReviewEngine {
                 log.warn("AI review call failed, using heuristic: {}", e.getMessage());
             }
         } else {
-            log.info("No AI API key configured, using heuristic review for event {}", eventId);
+            log.info("No usable AI model configured, using heuristic review for event {}", eventId);
         }
 
         if (result == null) {
@@ -296,23 +295,31 @@ public class CodeReviewEngine {
                 5. STYLE: naming, structure, anti-patterns, missing tests
                 6. DEPENDENCY: version conflicts, deprecated API usage, license issues
 
+                Language rules:
+                - Write all human-readable text fields in Chinese (中文): diffSummary, logicAnalysis, suggestion,
+                  and each finding's title, description, suggestion.
+                - Keep enum values (verdict, severity, category) in English as shown below.
+                - Keep code identifiers, file paths, API/class/method names, and codeSnippet content as in the diff.
+                - Technical terms commonly used in English (e.g. N+1, null pointer, race condition, SQL injection)
+                  may remain in English or use the usual Chinese-English mix.
+
                 Respond with JSON ONLY:
                 {
                   "score": 0-100,
                   "verdict": "PASS"|"WARNING"|"FAIL",
-                  "diffSummary": "one-sentence business logic summary",
-                  "logicAnalysis": "what the change does and why",
-                  "suggestion": "overall improvement suggestion or empty string",
+                  "diffSummary": "一句话业务变更摘要（中文）",
+                  "logicAnalysis": "变更做了什么、为什么（中文）",
+                  "suggestion": "整体改进建议，无则空字符串（中文）",
                   "findings": [
                     {
                       "severity": "CRITICAL"|"WARNING"|"INFO"|"SUGGESTION",
                       "category": "BUG"|"SECURITY"|"PERFORMANCE"|"LOGIC"|"STYLE"|"DEPENDENCY",
                       "filePath": "...",
                       "lineRange": "L45-L52",
-                      "title": "short title",
-                      "description": "detailed explanation",
+                      "title": "简短标题（中文）",
+                      "description": "详细说明（中文）",
                       "codeSnippet": "the problematic code",
-                      "suggestion": "how to fix",
+                      "suggestion": "修复建议（中文）",
                       "autoFixable": true|false
                     }
                   ]

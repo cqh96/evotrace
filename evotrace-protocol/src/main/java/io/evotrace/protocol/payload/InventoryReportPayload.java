@@ -12,7 +12,9 @@ public record InventoryReportPayload(
         Map<String, String> configFingerprints,
         List<String> ddlStatements
 ) {
-    public record ApiItem(String httpMethod, String path, String signatureHash, String schemaFingerprint) {
+    public record ApiItem(String httpMethod, String path, String signatureHash, String schemaFingerprint,
+                          String name, List<String> tags, List<Map<String, Object>> params,
+                          Map<String, Object> requestSchema, Map<String, Object> responseSchema) {
     }
 
     public record DependencyItem(String group, String artifact, String version, String scope) {

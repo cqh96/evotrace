@@ -152,8 +152,8 @@ const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Bo
         </div>
         <div class="pick-block">
           <span class="pick-label">基线版本</span>
-          <el-select v-model="from" class="pick-input">
-            <el-option v-for="v in versionOptions" :key="v" :value="v" />
+          <el-select v-model="from" class="pick-input" filterable>
+            <el-option v-for="v in versionOptions" :key="v" :label="v" :value="v" />
           </el-select>
         </div>
         <button class="swap-btn" title="交换两个版本" :disabled="loading" @click="swapVersions">
@@ -161,12 +161,12 @@ const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Bo
         </button>
         <div class="pick-block">
           <span class="pick-label">目标版本</span>
-          <el-select v-model="to" class="pick-input">
-            <el-option v-for="v in versionOptions" :key="v" :value="v" />
+          <el-select v-model="to" class="pick-input" filterable>
+            <el-option v-for="v in versionOptions" :key="v" :label="v" :value="v" />
           </el-select>
         </div>
         <div class="picker-actions">
-          <el-button type="primary" class="run-btn" :loading="loading" @click="runCompare">
+          <el-button type="primary" class="run-btn" :loading="loading" :disabled="from === to" @click="runCompare">
             <el-icon v-if="!loading" :size="15"><DataAnalysis /></el-icon>生成对比报告
           </el-button>
         </div>
@@ -223,7 +223,7 @@ const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Bo
             </template>
             <div class="tab-content">
               <el-table :data="report[t.k as 'apis']" :row-class-name="rowClass">
-                <el-table-column prop="identityKey" label="清单项" min-width="280" />
+                <el-table-column prop="identityKey" label="清单项" min-width="280" show-overflow-tooltip />
                 <el-table-column label="变化" width="110">
                   <template #default="{ row }">
                     <span class="flag-mark" :class="'flag-' + String(row.changeFlag).toLowerCase()">
@@ -231,8 +231,8 @@ const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Bo
                     </span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="before" label="变更前" min-width="200"><template #default="{ row }">{{ row.before ?? '—' }}</template></el-table-column>
-                <el-table-column prop="after" label="变更后" min-width="200"><template #default="{ row }">{{ row.after ?? '—' }}</template></el-table-column>
+                <el-table-column prop="before" label="变更前" min-width="200" show-overflow-tooltip><template #default="{ row }">{{ row.before ?? '—' }}</template></el-table-column>
+                <el-table-column prop="after" label="变更后" min-width="200" show-overflow-tooltip><template #default="{ row }">{{ row.after ?? '—' }}</template></el-table-column>
               </el-table>
             </div>
           </el-tab-pane>

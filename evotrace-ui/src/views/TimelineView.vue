@@ -80,6 +80,13 @@ const eventFiles = (e: TimelineEvent): EventFile[] => e.files ?? []
 // 全局项目切换时自动刷新
 watch(project, (v) => { filters.value.project = v; load() })
 
+// 筛选条件（应用/类型）变化时自动搜索，避免依赖手动点击查询按钮
+let debounceTimer: ReturnType<typeof setTimeout> | undefined
+watch([() => filters.value.app, () => filters.value.type], () => {
+  clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(load, 400)
+})
+
 onMounted(load)
 
 /* ===================== 展示层（不改动业务逻辑） ===================== */

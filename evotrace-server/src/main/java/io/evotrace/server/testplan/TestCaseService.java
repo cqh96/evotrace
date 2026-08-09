@@ -1,5 +1,6 @@
 package io.evotrace.server.testplan;
 
+import io.evotrace.server.feishu.FeishuBitableService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,12 +21,14 @@ public class TestCaseService {
     private static final Set<String> MUTABLE_FIELDS = Set.of(
             "title", "description", "steps", "test_type", "priority",
             "related_files", "related_apis", "tags", "requirement_id",
-            "parent_id", "node_type");
+            "parent_id", "node_type", "custom_fields");
 
     private final JdbcTemplate jdbc;
+    private final FeishuBitableService feishuSyncService;
 
-    public TestCaseService(JdbcTemplate jdbc) {
+    public TestCaseService(JdbcTemplate jdbc, FeishuBitableService feishuSyncService) {
         this.jdbc = jdbc;
+        this.feishuSyncService = feishuSyncService;
     }
 
     /** Flat list for the frontend module tree (el-tree). */
@@ -125,15 +128,20 @@ public class TestCaseService {
                 args.add(e.getValue());
             }
         }
-        return jdbc.queryForObject(
+        Long id = jdbc.queryForObject(
                 "INSERT INTO test_case(" + cols + ") VALUES (" + vals + ") RETURNING id",
                 Long.class, args.toArray());
+        if ("CASE".equals(nodeType)) {
+            feishuSyncService.pushNewCase(id); // best-effort: 未配置/未启用时自动跳过
+        }
+        return id;
     }
 
     @Transactional
     public void update(Long projectId, Long caseId, Map<String, Object> data) {
         Map<String, Object> clean = whitelist(data);
         if (clean.isEmpty()) return;
+        snapshot(caseId, projectId);
         StringBuilder set = new StringBuilder();
         List<Object> args = new java.util.ArrayList<>();
         for (Map.Entry<String, Object> e : clean.entrySet()) {
@@ -145,6 +153,27 @@ public class TestCaseService {
         args.add(caseId);
         args.add(projectId);
         jdbc.update("UPDATE test_case SET " + set + " WHERE id = ? AND project_id = ?", args.toArray());
+    }
+
+    /** 更新前把当前用例状态写入版本快照（对标 MeterSphere 用例版本控制）。 */
+    private void snapshot(Long caseId, Long projectId) {
+        Map<String, Object> row = jdbc.queryForMap("""
+                SELECT title, description, steps, test_type AS "testType", priority, tags,
+                       related_files AS "relatedFiles", related_apis AS "relatedApis",
+                       custom_fields AS "customFields"
+                FROM test_case WHERE id = ? AND project_id = ?
+                """, caseId, projectId);
+        int next = jdbc.queryForObject(
+                "SELECT COALESCE(max(version), 0) + 1 FROM test_case_version WHERE test_case_id = ?",
+                Integer.class, caseId);
+        jdbc.update("""
+                INSERT INTO test_case_version(test_case_id, version, title, description, steps, test_type,
+                    priority, tags, related_files, related_apis, custom_fields)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb)
+                """, caseId, next, row.get("title"), row.get("description"), row.get("steps"),
+                row.get("testType"), row.get("priority"), row.get("tags"),
+                row.get("relatedFiles"), row.get("relatedApis"),
+                row.get("customFields") == null ? "{}" : String.valueOf(row.get("customFields")));
     }
 
     @Transactional

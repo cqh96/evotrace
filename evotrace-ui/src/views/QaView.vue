@@ -2,6 +2,8 @@
 import { nextTick, onMounted, ref, watch } from 'vue'
 import { Promotion, Warning } from '@element-plus/icons-vue'
 import { qaApi, modelConfigApi, type ModelConfig } from '../api'
+import { renderMarkdown } from '../utils/markdown'
+import { ElMessage } from 'element-plus'
 
 interface Message { role: 'user' | 'assistant'; content: string; refs?: { title: string; url?: string }[]; model?: string }
 
@@ -109,7 +111,8 @@ watch([messages, loading], async () => {
         <div v-for="(m, i) in messages" :key="i" :class="['msg', m.role]">
           <span v-if="m.role === 'assistant'" class="et-g-ic g-violet avatar-ic">AI</span>
           <div class="bubble">
-            <pre>{{ m.content }}</pre>
+            <div v-if="m.role === 'assistant'" class="md" v-html="renderMarkdown(m.content)"></div>
+            <pre v-else>{{ m.content }}</pre>
             <div v-if="m.model" class="model-tag">
               <span class="et-mini-tag et-tag-info">模型 {{ m.model }}</span>
             </div>
@@ -306,6 +309,41 @@ watch([messages, loading], async () => {
   line-height: 1.7;
   color: inherit;
 }
+
+/* AI 回答的 Markdown 渲染 */
+.bubble .md { line-height: 1.7; word-break: break-word; }
+.bubble .md p { margin: 0 0 8px; }
+.bubble .md p:last-child { margin-bottom: 0; }
+.bubble .md h1, .bubble .md h2, .bubble .md h3, .bubble .md h4 {
+  margin: 10px 0 6px; font-weight: 700; line-height: 1.4;
+}
+.bubble .md ul, .bubble .md ol { margin: 6px 0; padding-left: 20px; }
+.bubble .md li { margin: 3px 0; }
+.bubble .md code {
+  background: rgba(109, 124, 255, 0.14);
+  padding: 1.5px 6px; border-radius: 6px;
+  font-size: 12.5px; font-family: 'SF Mono', Menlo, Consolas, monospace;
+}
+.bubble .md pre {
+  background: rgba(4, 8, 18, 0.55);
+  border: 1px solid var(--et-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+.bubble .md pre code { background: transparent; padding: 0; }
+.bubble .md blockquote {
+  margin: 8px 0; padding: 4px 12px;
+  border-left: 3px solid var(--et-primary);
+  color: var(--et-text-secondary);
+  background: rgba(109, 124, 255, 0.08);
+  border-radius: 0 8px 8px 0;
+}
+.bubble .md a { color: var(--et-grad-c); text-decoration: underline; }
+.bubble .md table { border-collapse: collapse; margin: 8px 0; }
+.bubble .md th, .bubble .md td { border: 1px solid var(--et-border); padding: 5px 10px; }
+.bubble .md strong { font-weight: 700; }
 
 /* 用户：右侧渐变蓝紫气泡 */
 .msg.user .bubble {

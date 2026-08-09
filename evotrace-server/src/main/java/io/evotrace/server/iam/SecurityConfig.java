@@ -26,7 +26,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/**", "/open-api/**", "/actuator/health").permitAll()
+                        .requestMatchers("/api/v1/auth/**", "/open-api/**", "/actuator/health", "/api/v1/ci/run").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex.authenticationEntryPoint((req, resp, e) -> {
                     resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

@@ -6,15 +6,28 @@ import { ElMessage } from 'element-plus'
 import {
   DataAnalysis, Timer, Switch, ChatDotRound, Connection, TrendCharts, Bell,
   Monitor, Fold, Expand, SwitchButton, Sunny, Moon, Checked, Setting,
-  Search, ArrowRight, User
+  Search, ArrowRight, User, Files, Tickets, PieChart, Aim, Odometer, Link, DataLine,
+  Warning, MagicStick, Lightning
 } from '@element-plus/icons-vue'
-import { projectApi, type Project } from '../api'
+import { projectApi, memberApi, type Project } from '../api'
 import { useProjectStore } from '../stores/project'
 
 const route = useRoute()
 const router = useRouter()
 const collapsed = ref(false)
 const username = localStorage.getItem('evotrace_user') ?? 'admin'
+
+/* ---------- 分组折叠（手风琴式，默认展开） ---------- */
+const collapsedGroups = ref<Set<string>>(new Set())
+function toggleGroup(title: string) {
+  const next = new Set(collapsedGroups.value)
+  if (next.has(title)) next.delete(title)
+  else next.add(title)
+  collapsedGroups.value = next
+}
+function isGroupCollapsed(title: string) {
+  return collapsed.value || collapsedGroups.value.has(title)
+}
 
 /* ---------- 主题（默认深色） ---------- */
 const isDark = ref(localStorage.getItem('evotrace_theme') !== 'light')
@@ -30,49 +43,92 @@ document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'lig
 const projectStore = useProjectStore()
 const { current: currentProject } = storeToRefs(projectStore)
 const projects = ref<Project[]>([])
+const myRole = ref('ADMIN')
 onMounted(async () => {
-  try { projects.value = await projectApi.list() } catch { projects.value = [] }
+  try { projects.value = await projectApi.active() } catch { projects.value = [] }
+  // 无有效当前项目时（未选择，或已停用/下线），自动选中第一个在线项目
+  if (!projects.value.some((p) => p.projectKey === currentProject.value)) {
+    if (projects.value.length) projectStore.setCurrent(projects.value[0].projectKey)
+    else projectStore.setCurrent('')
+  }
+  // 拉取当前用户在当前项目中的角色，用于菜单权限过滤
+  const key = currentProject.value
+  if (key) {
+    try { const r = await memberApi.me(key, username); myRole.value = r.role } catch {}
+  }
+})
+
+// 按角色过滤菜单（无 roles 约束的项对所有角色可见）
+const visibleNavGroups = computed(() => {
+  const allow = (item: NavItem) => !item.roles || item.roles.includes(myRole.value)
+  return navGroups
+    .map((g) => ({ ...g, items: g.items.filter(allow) }))
+    .filter((g) => g.items.length > 0)
 })
 
 /* ---------- 导航 ---------- */
-interface NavItem { path: string; icon: typeof DataAnalysis; label: string; badge?: string; desc?: string }
+interface NavItem { path: string; icon: typeof DataAnalysis; label: string; badge?: string; desc?: string; roles?: string[] }
 const navGroups: { title: string; items: NavItem[] }[] = [
-  { title: '概览', items: [{ path: '/dashboard', icon: DataAnalysis, label: '项目总览', desc: '工作台首页' }] },
+  { title: '概览', items: [
+    { path: '/dashboard', icon: DataAnalysis, label: '项目总览', desc: '工作台首页' },
+    { path: '/workbench', icon: User, label: '个人工作台', desc: '我的待办聚合' }
+  ] },
   {
     title: '演化追踪',
     items: [
       { path: '/timeline', icon: Timer, label: '演化时间线', badge: 'AI', desc: '全链路变更历史' },
       { path: '/compare', icon: Switch, label: '版本对比', desc: '任意两版本差异' },
       { path: '/analysis', icon: TrendCharts, label: '智能分析', desc: 'AI 自动分析' },
-      { path: '/code-review', icon: Checked, label: 'AI 代码审查', desc: '提交代码审查' }
+      { path: '/code-review', icon: Checked, label: '代码审查', desc: 'AI 提交审查' }
     ]
   },
   {
-    title: '协作',
+    title: '测试中心',
     items: [
-      { path: '/qa', icon: ChatDotRound, label: 'AI 演化问答', desc: '用自然语言提问' },
+      { path: '/qa-dashboard', icon: Tickets, label: '测试用例', desc: '用例与覆盖率' },
+      { path: '/api-debug', icon: Files, label: '接口调试', desc: '接口文档/Mock' },
+      { path: '/scenario', icon: Connection, label: '场景编排', desc: '多接口自动化' },
+      { path: '/ui-test', icon: Aim, label: 'UI 测试', desc: 'Selenium 自动化' },
+      { path: '/perf-test', icon: Odometer, label: '性能测试', desc: '并发压测与指标' }
+    ]
+  },
+  {
+    title: '质量与集成',
+    items: [
+      { path: '/test-report', icon: PieChart, label: '测试报告', desc: '可视化质量报告' },
+      { path: '/ci-integration', icon: Link, label: 'CI 集成', desc: 'Jenkins 流水线触发' }
+    ]
+  },
+  {
+    title: '需求与协作',
+    items: [
+      { path: '/pm', icon: User, label: '需求看板', desc: '需求与验收' },
+      { path: '/qa', icon: ChatDotRound, label: 'AI 问答', desc: '用自然语言提问' },
       { path: '/subscriptions', icon: Bell, label: '变更订阅', badge: '3', desc: '订阅感兴趣的变更' }
     ]
   },
   {
-    title: '管理',
+    title: '系统管理',
     items: [
-      { path: '/integration', icon: Connection, label: '接入管理', desc: '管理项目与 SDK' },
-      { path: '/model-config', icon: Setting, label: 'AI 模型配置', desc: '模型与密钥管理' }
+      { path: '/integration', icon: DataLine, label: '接入管理', desc: '管理项目与 SDK' },
+      { path: '/model-config', icon: Setting, label: '模型配置', desc: '模型与密钥管理' }
     ]
   },
   {
-    title: 'PM / QA',
+    title: '管理运营',
     items: [
-      { path: '/pm', icon: User, label: 'PM 需求看板', desc: '需求与验收管理' },
-      { path: '/qa-dashboard', icon: Monitor, label: 'QA 测试面板', desc: '用例与覆盖率' }
+      { path: '/metrics', icon: TrendCharts, label: '研效度量', desc: '交付/逃逸/吞吐指标', roles: ['ADMIN', 'PM', 'QA', 'OPS'] },
+      { path: '/bugs', icon: Warning, label: '缺陷管理', desc: '状态流转与追溯', roles: ['ADMIN', 'PM', 'QA'] },
+      { path: '/automation', icon: MagicStick, label: '自动化规则', desc: '事件触发引擎', roles: ['ADMIN', 'PM', 'OPS'] },
+      { path: '/feedback', icon: ChatDotRound, label: '反馈管理', desc: 'AI 转需求缺陷', roles: ['ADMIN', 'PM'] },
+      { path: '/members', icon: Lightning, label: '项目成员', desc: '角色权限管理', roles: ['ADMIN', 'PM'] }
     ]
   }
 ]
 
 const pageTitle = computed(() => (route.meta.title as string) ?? 'EvoTrace')
 const crumb = computed(() => {
-  for (const g of navGroups) {
+  for (const g of visibleNavGroups.value) {
     const it = g.items.find((i) => i.path === route.path)
     if (it) return { group: g.title, page: it.label }
   }
@@ -107,7 +163,7 @@ const visibleItems = computed(() => {
 
 function buildItems() {
   const list: typeof items.value = []
-  for (const g of navGroups) {
+  for (const g of visibleNavGroups.value) {
     for (const it of g.items) list.push({ icon: it.icon, label: it.label, desc: g.title, path: it.path })
   }
   list.push({ icon: Sunny, label: '切换主题', desc: '深色 / 浅色', action: 'theme' })
@@ -177,18 +233,29 @@ window.addEventListener('keydown', onPaletteKey)
       </div>
 
       <nav class="nav">
-        <div v-for="group in navGroups" :key="group.title" class="nav-group">
-          <div v-if="!collapsed" class="nav-group-title">{{ group.title }}</div>
+        <div v-for="group in visibleNavGroups" :key="group.title" class="nav-group">
           <button
-            v-for="item in group.items" :key="item.path"
-            class="nav-item" :class="{ active: isActive(item.path) }"
-            :title="collapsed ? item.label : undefined"
-            @click="router.push(item.path)"
+            class="nav-group-title"
+            :class="{ collapsed: isGroupCollapsed(group.title) }"
+            :title="collapsed ? group.title : undefined"
+            @click="toggleGroup(group.title)"
           >
-            <span class="nav-ic"><el-icon :size="18"><component :is="item.icon" /></el-icon></span>
-            <span v-if="!collapsed" class="nav-label">{{ item.label }}</span>
-            <span v-if="item.badge && !collapsed" class="nav-badge">{{ item.badge }}</span>
+            <span v-if="!collapsed" class="gt-text">{{ group.title }}</span>
+            <span v-else class="gt-dot"></span>
+            <el-icon v-if="!collapsed" :size="12" class="gt-chev"><ArrowRight /></el-icon>
           </button>
+          <div v-show="!isGroupCollapsed(group.title)" class="nav-group-body">
+            <button
+              v-for="item in group.items" :key="item.path"
+              class="nav-item" :class="{ active: isActive(item.path) }"
+              :title="item.label"
+              @click="router.push(item.path)"
+            >
+              <span class="nav-ic"><el-icon :size="18"><component :is="item.icon" /></el-icon></span>
+              <span v-if="!collapsed" class="nav-label">{{ item.label }}</span>
+              <span v-if="item.badge && !collapsed" class="nav-badge">{{ item.badge }}</span>
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -361,14 +428,39 @@ window.addEventListener('keydown', onPaletteKey)
 .nav { flex: 1; overflow-y: auto; overflow-x: hidden; margin-top: 14px; }
 .nav-group { margin-bottom: 14px; }
 .nav-group-title {
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: var(--et-text-muted);
-  padding: 4px 12px 7px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--et-text-secondary);
+  padding: 6px 12px 8px;
   white-space: nowrap;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s;
 }
+.nav-group-title:hover { color: var(--et-text); }
+.nav-group-title .gt-chev {
+  transition: transform 0.2s;
+  color: var(--et-text-muted);
+  opacity: 0.7;
+}
+.nav-group-title:not(.collapsed) .gt-chev { transform: rotate(90deg); }
+.nav-group-title .gt-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin: 0 auto;
+  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-c));
+  box-shadow: 0 0 6px var(--et-glow);
+  flex-shrink: 0;
+}
+.nav-group-body { overflow: hidden; }
 .nav-item {
   position: relative;
   display: flex;

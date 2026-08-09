@@ -13,6 +13,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Validates credentials & signature, checks idempotency and publishes
@@ -85,6 +86,13 @@ public class IngestionService {
                     "webhook 未配置有效凭证（缺少 X-EvoTrace-Api-Key 或项目无 ACTIVE 凭证）");
         }
 
+        // 项目下线/停用后拒绝接收新事件
+        Optional<Project> project = projectRepository.findById(credential.getProjectId());
+        if (project.isEmpty() || !"ACTIVE".equals(project.get().getStatus())) {
+            log.warn("webhook rejected: project={} disabled", envelope.projectKey());
+            return Result.fail("EVO-BIZ-001", "项目已下线或停用，拒绝接收新事件");
+        }
+
         kafkaTemplate.send(TOPIC_RAW_EVENTS, envelope.projectKey(), envelope);
         log.info("webhook event accepted: type={} project={} idempotencyKey={}",
                 envelope.eventType(), envelope.projectKey(), envelope.idempotencyKey());
@@ -101,6 +109,12 @@ public class IngestionService {
         if (credential == null || !"ACTIVE".equals(credential.getStatus())) {
             log.warn("invalid or inactive api key: {}", apiKey);
             return Result.fail(ErrorCodes.INVALID_SIGNATURE, "API Key 无效或已吊销");
+        }
+        // 项目下线/停用后拒绝接收新事件
+        Optional<Project> project = projectRepository.findById(credential.getProjectId());
+        if (project.isEmpty() || !"ACTIVE".equals(project.get().getStatus())) {
+            log.warn("project disabled, reject event: projectId={}", credential.getProjectId());
+            return Result.fail("EVO-BIZ-001", "项目已下线或停用，拒绝接收新事件");
         }
         String hmacKey = credential.getHmacKey();
         if (hmacKey == null || hmacKey.isBlank()) {

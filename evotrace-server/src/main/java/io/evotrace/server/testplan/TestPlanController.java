@@ -28,16 +28,22 @@ public class TestPlanController {
     private final TestPlanService testPlanService;
     private final TestExecutionService testExecutionService;
     private final AiTestCaseGenerator aiTestCaseGenerator;
+    private final CaseVersionService caseVersionService;
+    private final CaseImportExportService caseImportExportService;
 
     public TestPlanController(JdbcTemplate jdbc, TestCaseService testCaseService,
                               TestPlanService testPlanService,
                               TestExecutionService testExecutionService,
-                              AiTestCaseGenerator aiTestCaseGenerator) {
+                              AiTestCaseGenerator aiTestCaseGenerator,
+                              CaseVersionService caseVersionService,
+                              CaseImportExportService caseImportExportService) {
         this.jdbc = jdbc;
         this.testCaseService = testCaseService;
         this.testPlanService = testPlanService;
         this.testExecutionService = testExecutionService;
         this.aiTestCaseGenerator = aiTestCaseGenerator;
+        this.caseVersionService = caseVersionService;
+        this.caseImportExportService = caseImportExportService;
     }
 
     private Long projectId(String projectKey) {
@@ -106,6 +112,65 @@ public class TestPlanController {
     public Result<Map<String, Object>> traceMatrix(@PathVariable String projectKey,
                                                    @PathVariable Long requirementId) {
         return Result.ok(testCaseService.traceMatrix(projectId(projectKey), requirementId));
+    }
+
+    // ==================== 用例版本 ====================
+
+    @GetMapping("/cases/{caseId}/versions")
+    public Result<List<Map<String, Object>>> caseVersions(@PathVariable String projectKey,
+                                                          @PathVariable Long caseId) {
+        return Result.ok(caseVersionService.listVersions(projectId(projectKey), caseId));
+    }
+
+    @GetMapping("/cases/{caseId}/versions/{version}")
+    public Result<Map<String, Object>> caseVersionDetail(@PathVariable String projectKey,
+                                                         @PathVariable Long caseId,
+                                                         @PathVariable Integer version) {
+        return Result.ok(caseVersionService.versionDetail(projectId(projectKey), caseId, version));
+    }
+
+    @PostMapping("/cases/{caseId}/versions/{version}/restore")
+    public Result<Void> restoreCaseVersion(@PathVariable String projectKey, @PathVariable Long caseId,
+                                           @PathVariable Integer version) {
+        caseVersionService.restore(projectId(projectKey), caseId, version);
+        return Result.ok(null);
+    }
+
+    // ==================== 用例 Excel 批量导入/导出 ====================
+
+    @GetMapping("/cases/export")
+    public void exportCases(@PathVariable String projectKey, jakarta.servlet.http.HttpServletResponse response) {
+        byte[] bytes = caseImportExportService.export(projectId(projectKey));
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment; filename=test_cases.xlsx");
+        try {
+            response.getOutputStream().write(bytes);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("导出写入失败: " + e.getMessage(), e);
+        }
+    }
+
+    @PostMapping("/cases/import")
+    public Result<Map<String, Object>> importCases(@PathVariable String projectKey,
+                                                   @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        try {
+            return Result.ok(caseImportExportService.importExcel(projectId(projectKey), file.getBytes()));
+        } catch (java.io.IOException e) {
+            throw new IllegalArgumentException("读取上传文件失败: " + e.getMessage());
+        }
+    }
+
+    // ==================== 计划：环境绑定 & 场景项 ====================
+
+    @PostMapping("/plans/{planId}/scenario-items")
+    public Result<Map<String, Object>> addScenarioItems(@PathVariable String projectKey,
+                                                        @PathVariable Long planId,
+                                                        @RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Number> ids = (List<Number>) body.get("scenarioIds");
+        int added = testPlanService.addScenarioItems(projectId(projectKey), planId,
+                ids.stream().map(Number::longValue).toList());
+        return Result.ok(Map.of("added", added));
     }
 
     @PostMapping("/cases/{caseId}/bugs")

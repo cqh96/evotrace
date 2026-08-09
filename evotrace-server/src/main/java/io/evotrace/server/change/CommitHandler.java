@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.evotrace.protocol.envelope.Envelope;
 import io.evotrace.protocol.envelope.EventType;
 import io.evotrace.protocol.payload.CodeCommitPayload;
+import io.evotrace.server.governance.AutomationRuleService;
 import io.evotrace.server.iteration.Iteration;
 import io.evotrace.server.iteration.IterationRepository;
 import io.evotrace.server.project.ProjectRepository;
@@ -34,6 +35,7 @@ public class CommitHandler extends SimpleEventHandler {
     private final ChangeFileRepository changeFileRepository;
     private final IterationRepository iterationRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
+    private final AutomationRuleService automationRuleService;
 
     /** Auto code review on every commit — off by default (AI cost). */
     @Value("${evotrace.code-review.auto-enabled:false}")
@@ -43,11 +45,13 @@ public class CommitHandler extends SimpleEventHandler {
                          ChangeFileRepository changeFileRepository,
                          ProjectRepository projectRepository,
                          IterationRepository iterationRepository,
-                         KafkaTemplate<String, String> kafkaTemplate) {
+                         KafkaTemplate<String, String> kafkaTemplate,
+                         AutomationRuleService automationRuleService) {
         super(changeEventRepository, projectRepository);
         this.changeFileRepository = changeFileRepository;
         this.iterationRepository = iterationRepository;
         this.kafkaTemplate = kafkaTemplate;
+        this.automationRuleService = automationRuleService;
     }
 
     @Override
@@ -71,6 +75,17 @@ public class CommitHandler extends SimpleEventHandler {
     protected void postPersist(ChangeEvent event, Envelope envelope) {
         persistFiles(event.getEventId(), convertPayload(envelope.payload()));
         dispatchAiTask(event);
+        // 自动化规则：提交事件触发（NOTIFY / CREATE_BUG 等按配置执行）
+        try {
+            CodeCommitPayload payload = convertPayload(envelope.payload());
+            automationRuleService.onEvent(event.getProjectId(), "CHANGE_AI_SUMMARY", Map.of(
+                    "eventId", event.getEventId(),
+                    "branch", payload.branch() != null ? payload.branch() : "",
+                    "commitSha", payload.commitSha() != null ? payload.commitSha() : "",
+                    "author", payload.authorName() != null ? payload.authorName() : ""));
+        } catch (Exception e) {
+            log.warn("automation rule on commit skipped: {}", e.getMessage());
+        }
     }
 
     private void persistFiles(String eventId, CodeCommitPayload payload) {

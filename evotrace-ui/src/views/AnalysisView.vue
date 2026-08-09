@@ -313,9 +313,9 @@ onMounted(async () => { await Promise.all([loadVersions(), loadHotspots(), loadB
             <div class="tab-content">
               <div class="toolbar-row">
                 <span class="toolbar-ic"><el-icon :size="14"><DataAnalysis /></el-icon></span>
-                <el-select v-model="fromVersion" style="width: 140px" size="small"><el-option v-for="v in versions" :key="v" :value="v" /></el-select>
+                <el-select v-model="fromVersion" style="width: 140px" size="small" filterable><el-option v-for="v in versions" :key="v" :label="v" :value="v" /></el-select>
                 <span class="arrow">→</span>
-                <el-select v-model="toVersion" style="width: 140px" size="small"><el-option v-for="v in versions" :key="v" :value="v" /></el-select>
+                <el-select v-model="toVersion" style="width: 140px" size="small" filterable><el-option v-for="v in versions" :key="v" :label="v" :value="v" /></el-select>
                 <el-button type="primary" size="small" @click="loadRiskScore" :loading="loading">评估</el-button>
               </div>
               <el-row v-if="riskScore" :gutter="16">
@@ -370,9 +370,9 @@ onMounted(async () => { await Promise.all([loadVersions(), loadHotspots(), loadB
             <div class="tab-content">
               <div class="toolbar-row">
                 <span class="toolbar-ic"><el-icon :size="14"><TrendCharts /></el-icon></span>
-                <el-select v-model="impactFrom" style="width: 140px" size="small"><el-option v-for="v in versions" :key="v" :value="v" /></el-select>
+                <el-select v-model="impactFrom" style="width: 140px" size="small" filterable><el-option v-for="v in versions" :key="v" :label="v" :value="v" /></el-select>
                 <span class="arrow">→</span>
-                <el-select v-model="impactTo" style="width: 140px" size="small"><el-option v-for="v in versions" :key="v" :value="v" /></el-select>
+                <el-select v-model="impactTo" style="width: 140px" size="small" filterable><el-option v-for="v in versions" :key="v" :label="v" :value="v" /></el-select>
                 <el-button type="primary" size="small" @click="loadImpact" :loading="impactLoading">分析影响面</el-button>
               </div>
               <el-empty v-if="!impactResult" description="选择版本区间后点击分析" :image-size="70" />

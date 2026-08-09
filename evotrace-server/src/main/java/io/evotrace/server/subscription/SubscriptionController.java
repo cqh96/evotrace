@@ -23,8 +23,20 @@ public class SubscriptionController {
 
     @GetMapping
     public Result<List<Map<String, Object>>> list() {
-        return Result.ok(jdbc.queryForList(
-                "SELECT id, name, channel, enabled, created_at AS \"createdAt\" FROM subscription_rule ORDER BY id"));
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT id, name, channel, enabled, filter_json AS \"filter\", created_at AS \"createdAt\" FROM subscription_rule ORDER BY id");
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        for (Map<String, Object> row : rows) {
+            Object f = row.get("filter");
+            if (f != null) {
+                try {
+                    row.put("filter", mapper.readValue(String.valueOf(f), Map.class));
+                } catch (Exception e) {
+                    row.put("filter", Map.of());
+                }
+            }
+        }
+        return Result.ok(rows);
     }
 
     public record CreateRequest(String name, Long workspaceId, Long userId,

@@ -37,7 +37,7 @@ public class ApplicationController {
         return Result.ok(applicationRepository.findByProjectId(projectId));
     }
 
-    public record AppRequest(String appKey, String name, String techStack, String owner) {}
+    public record AppRequest(String appKey, String name, String techStack, String owner, String baseUrl) {}
 
     @PostMapping
     public Result<Application> create(@PathVariable String projectKey, @RequestBody AppRequest request) {
@@ -53,6 +53,7 @@ public class ApplicationController {
         app.setName(request.name());
         app.setTechStack(request.techStack());
         app.setOwner(request.owner());
+        app.setBaseUrl(request.baseUrl());
         return Result.ok(applicationRepository.save(app));
     }
 
@@ -67,6 +68,7 @@ public class ApplicationController {
         if (request.name() != null) app.setName(request.name());
         if (request.techStack() != null) app.setTechStack(request.techStack());
         if (request.owner() != null) app.setOwner(request.owner());
+        if (request.baseUrl() != null) app.setBaseUrl(request.baseUrl());
         return Result.ok(applicationRepository.save(app));
     }
 }

@@ -3,11 +3,11 @@ import { onMounted, ref, nextTick, computed, watch, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
 import { storeToRefs } from 'pinia'
 import { ElMessage } from 'element-plus'
-import { Plus, Refresh, Setting, Document, Calendar, VideoPlay, TrendCharts, Warning, Monitor, FolderOpened } from '@element-plus/icons-vue'
+import { Plus, Refresh, Setting, Document, Calendar, VideoPlay, TrendCharts, Warning, Monitor, FolderOpened, Download, Upload } from '@element-plus/icons-vue'
 import PageCard from '../components/PageCard.vue'
 import StatCard from '../components/StatCard.vue'
 import client from '../api/client'
-import { bugApi, jiraApi, testPlanApi, releaseApi, analysisApi, diagnosticsApi, type TestCase, type TestPlan, type RunCaseResult, type RunPlanResult } from '../api'
+import { bugApi, jiraApi, feishuApi, testPlanApi, releaseApi, analysisApi, diagnosticsApi, caseFileApi, apiDebugApi, scenarioApi, type TestCase, type TestPlan, type RunCaseResult, type RunPlanResult } from '../api'
 import { useProjectStore } from '../stores/project'
 
 const projectStore = useProjectStore()
@@ -130,6 +130,50 @@ async function openCaseDetail(row: TestCase) {
 async function unlinkCaseBug(bugId: number) {
   if (!caseDetail.value) return
   try { await testPlanApi.unlinkCaseBug(project.value, caseDetail.value.id, bugId); ElMessage.success('已取消关联'); openCaseDetail(caseDetail.value) } catch { /* 拦截器已提示 */ }
+}
+
+// ==================== 用例 Excel 批量导入/导出（对标 MeterSphere） ====================
+const importInput = ref<HTMLInputElement | null>(null)
+async function exportCases() {
+  const url = caseFileApi.exportUrl(project.value)
+  const token = localStorage.getItem('evotrace_token')
+  const a = document.createElement('a')
+  a.href = `${url}${token ? `?access_token=${encodeURIComponent(token)}` : ''}`
+  document.body.appendChild(a); a.click(); a.remove()
+  ElMessage.success('正在导出用例 Excel')
+}
+async function onImportCases(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  try {
+    const r = await caseFileApi.import(project.value, file)
+    ElMessage.success(`导入成功：新增 ${r.imported} 条用例`)
+    loadCases(); loadCaseTree()
+  } catch { /* 拦截器已提示 */ } finally {
+    if (importInput.value) importInput.value.value = ''
+  }
+}
+
+// ==================== 用例版本历史（对标 MeterSphere） ====================
+const caseVersions = ref<{ version: number; changedBy?: string; createdAt: string }[]>([])
+const caseVersionView = ref<Record<string, any> | null>(null)
+const versionsLoading = ref(false)
+async function loadCaseVersions() {
+  if (!caseDetail.value) return
+  versionsLoading.value = true; caseVersions.value = []; caseVersionView.value = null
+  try { caseVersions.value = await testPlanApi.caseVersions(project.value, caseDetail.value.id) } catch { /* 拦截器已提示 */ }
+  versionsLoading.value = false
+}
+async function viewCaseVersion(version: number) {
+  if (!caseDetail.value) return
+  try { caseVersionView.value = await testPlanApi.caseVersionDetail(project.value, caseDetail.value.id, version) } catch { /* 拦截器已提示 */ }
+}
+async function restoreCaseVersion(version: number) {
+  if (!caseDetail.value) return
+  try {
+    await testPlanApi.restoreCaseVersion(project.value, caseDetail.value.id, version)
+    ElMessage.success('已回滚到该版本'); openCaseDetail(caseDetail.value); loadCaseVersions()
+  } catch { /* 拦截器已提示 */ }
 }
 
 // ==================== AI 用例生成 + 追溯矩阵（对标 MeterSphere） ====================
@@ -265,7 +309,40 @@ async function changePlanStatus(plan: TestPlan, to: string) {
   try { await testPlanApi.updatePlanStatus(project.value, plan.id, to); ElMessage.success(`计划已流转为 ${to}`); loadPlans() } catch { /* 拦截器已提示 */ }
 }
 async function openPlanDetail(plan: TestPlan) {
-  try { planDetail.value = await testPlanApi.getPlan(project.value, plan.id); planDetailVisible.value = true } catch { /* 拦截器已提示 */ }
+  try {
+    planDetail.value = await testPlanApi.getPlan(project.value, plan.id)
+    planEnvironmentId.value = (planDetail.value as any).environmentId ?? (planDetail.value as any).environment_id ?? null
+    planDetailVisible.value = true
+  } catch { /* 拦截器已提示 */ }
+}
+// ===== 计划：执行环境绑定 + 追加场景（对标 MeterSphere） =====
+const environments = ref<{ id: number; name: string }[]>([])
+const planEnvironmentId = ref<number | null>(null)
+const addScenarioVisible = ref(false)
+const scenarioOptions = ref<{ id: number; name: string }[]>([])
+const addScenarioSelected = ref<number[]>([])
+async function loadEnvironments() {
+  try { environments.value = await apiDebugApi.environments(project.value) } catch { environments.value = [] }
+}
+async function bindPlanEnvironment(id: number | null) {
+  if (!planDetail.value) return
+  try {
+    await testPlanApi.updatePlan(project.value, planDetail.value.id, { environmentId: id ?? null })
+    ElMessage.success(id ? '已绑定执行环境' : '已解除环境绑定')
+  } catch { /* 拦截器已提示 */ }
+}
+async function openAddScenario() {
+  addScenarioSelected.value = []
+  try { scenarioOptions.value = await scenarioApi.list(project.value) } catch { scenarioOptions.value = [] }
+  addScenarioVisible.value = true
+}
+async function addScenariosToPlan() {
+  if (!planDetail.value || !addScenarioSelected.value.length) return
+  try {
+    await testPlanApi.addScenarioItems(project.value, planDetail.value.id, addScenarioSelected.value)
+    ElMessage.success('场景已加入计划'); addScenarioVisible.value = false; addScenarioSelected.value = []
+    openPlanDetail(planDetail.value); loadPlans()
+  } catch { /* 拦截器已提示 */ }
 }
 async function executeItem(item: any, status: string) {
   if (!planDetail.value) return
@@ -506,6 +583,53 @@ const jiraVisible = ref(false)
 const jiraForm = ref({ baseUrl: '', username: '', apiToken: '', jiraProjectKey: '', issueType: 'Bug', enabled: false, statusMap: {} as Record<string, string> })
 const jiraSyncing = ref(false)
 
+// ==================== 飞书多维表格(Bitable) 同步 ====================
+const feishuVisible = ref(false)
+const feishuForm = ref({ appId: '', appSecret: '', appToken: '', bugTableId: '', caseTableId: '', enabled: false, fieldMap: {} as Record<string, string>, statusMap: {} as Record<string, string> })
+const feishuSyncing = ref(false)
+const feishuFieldMapText = ref('title=title\ndescription=description\nseverity=severity\nstatus=status\ntestType=testType\npriority=priority\nsteps=steps')
+const feishuStatusMapText = ref('OPEN=待处理\nIN_PROGRESS=处理中\nFIXED=已修复\nVERIFIED=已验证\nCLOSED=已关闭\nREOPENED=重新打开')
+
+async function loadFeishuConfig() {
+  try {
+    const cfg = await feishuApi.getConfig(project.value)
+    feishuForm.value = {
+      appId: cfg.appId ?? '', appSecret: '', appToken: cfg.appToken ?? '',
+      bugTableId: cfg.bugTableId ?? '', caseTableId: cfg.caseTableId ?? '',
+      enabled: !!cfg.enabled, fieldMap: cfg.fieldMap ?? {}, statusMap: cfg.statusMap ?? {}
+    }
+    feishuFieldMapText.value = Object.keys(feishuForm.value.fieldMap).length
+      ? Object.entries(feishuForm.value.fieldMap).map(([k, v]) => `${k}=${v}`).join('\n')
+      : 'title=title\ndescription=description\nseverity=severity\nstatus=status\ntestType=testType\npriority=priority\nsteps=steps'
+    feishuStatusMapText.value = Object.entries(feishuForm.value.statusMap).map(([k, v]) => `${k}=${v}`).join('\n')
+  } catch { /* 拦截器已提示 */ }
+}
+async function saveFeishuConfig() {
+  try {
+    const fieldMap: Record<string, string> = {}
+    for (const line of feishuFieldMapText.value.split('\n')) {
+      const i = line.indexOf('=')
+      if (i > 0) fieldMap[line.slice(0, i).trim()] = line.slice(i + 1).trim()
+    }
+    const statusMap: Record<string, string> = {}
+    for (const line of feishuStatusMapText.value.split('\n')) {
+      const i = line.indexOf('=')
+      if (i > 0) statusMap[line.slice(0, i).trim()] = line.slice(i + 1).trim()
+    }
+    await feishuApi.saveConfig(project.value, { ...feishuForm.value, fieldMap, statusMap })
+    ElMessage.success('飞书配置已保存'); feishuVisible.value = false
+  } catch { /* 拦截器已提示 */ }
+}
+async function syncFeishu() {
+  feishuSyncing.value = true
+  try {
+    const r = await feishuApi.sync(project.value)
+    ElMessage.success(`飞书同步完成，导入缺陷 ${(r as any).bugs} 条、用例 ${(r as any).cases} 条`)
+    loadBugs(); loadCases(); loadCaseTree(); loadFeishuConfig()
+  } catch { /* 拦截器已提示 */ }
+  feishuSyncing.value = false
+}
+
 async function loadBugs() {
   try {
     bugs.value = await client.get(`/pm/bugs`, { params: { projectKey: project.value, status: bugFilter.value.status, severity: bugFilter.value.severity } })
@@ -648,7 +772,8 @@ const sparkData = { cases: [2, 3, 5, 4, 6, 8, 7], plans: [3, 3, 4, 6, 5, 7, 8], 
 
 async function loadAll() {
   loadVersions(); loadGateHistory(); loadTrends(); loadBugs()
-  loadCases(); loadCaseTree(); loadPlans(); loadExecutions(); loadStandaloneCases(); loadJiraConfig()
+  loadCases(); loadCaseTree(); loadPlans(); loadExecutions(); loadStandaloneCases(); loadJiraConfig(); loadFeishuConfig()
+  loadEnvironments()
 }
 
 onMounted(loadAll)
@@ -665,6 +790,7 @@ onMounted(loadAll)
       <div class="qa-hero-right">
         <el-button :icon="Refresh" @click="loadAll">刷新数据</el-button>
         <el-button :icon="Setting" @click="jiraVisible = true; loadJiraConfig()">Jira 同步设置</el-button>
+        <el-button :icon="Setting" @click="feishuVisible = true; loadFeishuConfig()">飞书表格同步</el-button>
         <el-button type="primary" :icon="Plus" @click="openCaseDialog(); activeTab = 'cases'">新建用例</el-button>
       </div>
     </div>
@@ -720,6 +846,9 @@ onMounted(loadAll)
                 <el-button size="small" @click="casePage = 1; loadCases()">查询</el-button>
                 <el-button size="small" type="primary" :icon="VideoPlay" @click="openAiGen">AI 生成用例</el-button>
                 <el-button size="small" :icon="TrendCharts" @click="openTrace">需求追溯矩阵</el-button>
+                <el-button size="small" :icon="Download" @click="exportCases">导出用例</el-button>
+                <el-button size="small" :icon="Upload" @click="importInput?.click()">导入用例</el-button>
+                <input ref="importInput" type="file" accept=".xlsx" style="display:none" @change="onImportCases" />
               </div>
               <el-table :data="caseList" stripe size="small" v-loading="caseLoading" class="neo-table">
                 <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
@@ -1119,6 +1248,25 @@ onMounted(loadAll)
           </div>
           <el-empty v-if="!(caseDetail.bugs ?? []).length" description="暂无关联缺陷" :image-size="50" />
         </div>
+        <div class="bug-list">
+          <h4>历史版本</h4>
+          <el-button size="small" text type="primary" class="ops-btn" :loading="versionsLoading" @click="loadCaseVersions">加载版本</el-button>
+          <div v-for="v in caseVersions" :key="v.version" class="bug-item">
+            <span class="type-tag">v{{ v.version }}</span>
+            <span class="meta-text">{{ v.changedBy ?? '—' }} · {{ v.createdAt }}</span>
+            <el-button size="small" text class="ops-btn" @click="viewCaseVersion(v.version)">查看</el-button>
+            <el-button size="small" text type="danger" class="ops-btn" @click="restoreCaseVersion(v.version)">回滚</el-button>
+          </div>
+          <el-empty v-if="!caseVersions.length && !versionsLoading" description="暂无历史版本（编辑保存后自动生成）" :image-size="40" />
+        </div>
+        <div v-if="caseVersionView" class="step-preview">
+          <h4>版本 v{{ caseVersionView.version }} 内容</h4>
+          <div class="meta-line"><span class="type-tag">{{ typeLabel(caseVersionView.testType) }}</span><span class="sev" :class="sevClass(caseVersionView.priority)">{{ caseVersionView.priority }}</span></div>
+          <div v-for="(s, i) in parseSteps(caseVersionView.steps)" :key="i" class="step-preview-row">
+            <span class="type-tag">{{ stepActionLabel(s.action) }}</span>
+            <span>{{ s.target ?? (s.method + ' ' + (s.url ?? '')) }}</span>
+          </div>
+        </div>
       </template>
     </el-dialog>
 
@@ -1157,6 +1305,13 @@ onMounted(loadAll)
           </el-button>
           <el-button size="small" :icon="Document" @click="showPlanReport(planDetail)">计划报告</el-button>
           <el-button size="small" :icon="Plus" @click="addCaseVisible = true">追加用例</el-button>
+          <el-button size="small" :icon="Plus" @click="addScenarioVisible = true">追加场景</el-button>
+        </div>
+        <div class="toolbar-row" style="margin-bottom: 12px">
+          <span class="meta-text">执行环境</span>
+          <el-select v-model="planEnvironmentId" size="small" placeholder="不绑定环境（使用用例内 URL）" clearable style="width: 240px" @change="bindPlanEnvironment">
+            <el-option v-for="e in environments" :key="e.id" :label="e.name" :value="e.id" />
+          </el-select>
         </div>
         <el-table :data="planDetail.items ?? []" stripe size="small" class="neo-table">
           <el-table-column prop="title" label="用例" min-width="180" show-overflow-tooltip />
@@ -1198,6 +1353,19 @@ onMounted(loadAll)
       <template #footer>
         <el-button @click="addCaseVisible = false">取消</el-button>
         <el-button type="primary" @click="addCasesToPlan">加入计划</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 追加场景弹窗 -->
+    <el-dialog v-model="addScenarioVisible" title="追加接口场景" width="520px">
+      <el-table :data="scenarioOptions" stripe size="small" class="neo-table" @selection-change="(rows: any[]) => addScenarioSelected = rows.map(r => r.id)">
+        <el-table-column type="selection" width="40" />
+        <el-table-column prop="name" label="场景名称" min-width="200" show-overflow-tooltip />
+        <el-table-column label="状态" width="80"><template #default="{ row }"><span class="pill" :class="tagToPill(row.enabled ? 'success' : 'info')">{{ row.enabled ? '启用' : '停用' }}</span></template></el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="addScenarioVisible = false">取消</el-button>
+        <el-button type="primary" @click="addScenariosToPlan">加入计划</el-button>
       </template>
     </el-dialog>
 
@@ -1304,6 +1472,32 @@ onMounted(loadAll)
         <el-button :loading="jiraSyncing" @click="syncJira">手动同步（拉取）</el-button>
         <el-button @click="jiraVisible = false">取消</el-button>
         <el-button type="primary" @click="saveJiraConfig">保存配置</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 飞书多维表格(Bitable) 同步设置弹窗 -->
+    <el-dialog v-model="feishuVisible" title="飞书多维表格双向同步" width="640px">
+      <el-alert type="info" :closable="false" class="qa-alert"
+                title="配置后：定时拉取飞书多维表格的缺陷/用例到 EvoTrace；本地新建缺陷/用例、状态流转自动回写飞书。未配置时不影响本地流程。" style="margin-bottom: 12px" />
+      <el-form label-width="110px">
+        <el-form-item label="启用"><el-switch v-model="feishuForm.enabled" /></el-form-item>
+        <el-form-item label="App ID"><el-input v-model="feishuForm.appId" placeholder="飞书自建应用的 App ID" /></el-form-item>
+        <el-form-item label="App Secret"><el-input v-model="feishuForm.appSecret" placeholder="App Secret（留空则保持原值）" show-password /></el-form-item>
+        <el-form-item label="Bitable Token"><el-input v-model="feishuForm.appToken" placeholder="多维表格 app_token（分享链接中的 app token）" /></el-form-item>
+        <el-form-item label="缺陷表 ID"><el-input v-model="feishuForm.bugTableId" placeholder="如 tblTcvWwJyfjyWpb（留空则不同步缺陷）" /></el-form-item>
+        <el-form-item label="用例表 ID"><el-input v-model="feishuForm.caseTableId" placeholder="如 tblXXX（留空则不同步用例）" /></el-form-item>
+        <el-form-item label="字段映射">
+          <el-input v-model="feishuFieldMapText" type="textarea" :rows="5" placeholder="每行：EVO字段=飞书列名，如 title=标题" />
+          <div class="meta-text" style="margin-top:4px">EVO字段：title/description/severity/status/testType/priority/steps；列名与字段同名时可不填此项。</div>
+        </el-form-item>
+        <el-form-item label="状态映射">
+          <el-input v-model="feishuStatusMapText" type="textarea" :rows="6" placeholder="每行：EVO状态=飞书列值，如 OPEN=待处理" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button :loading="feishuSyncing" @click="syncFeishu">手动同步（拉取）</el-button>
+        <el-button @click="feishuVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveFeishuConfig">保存配置</el-button>
       </template>
     </el-dialog>
 
@@ -1720,10 +1914,23 @@ onMounted(loadAll)
 .neo-table {
   border: 1px solid var(--et-border);
   border-radius: 12px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
+.ops-btn {
+  font-weight: 600;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 8px;
+}
+/* 提升操作按钮文字可读性（主色/成功/危险细化成更亮的取值） */
+.ops-btn.el-button--primary { color: #a8b4ff; }
+.ops-btn.el-button--success { color: #34d399; }
+.ops-btn.el-button--danger  { color: #fb7185; }
+.ops-btn.el-button--info    { color: var(--et-text-secondary); }
 .ops-btn:hover {
+  background: color-mix(in srgb, currentColor 22%, transparent);
   box-shadow: 0 0 12px var(--et-glow);
+  filter: brightness(1.15);
 }
 .table-pager {
   margin-top: 12px;

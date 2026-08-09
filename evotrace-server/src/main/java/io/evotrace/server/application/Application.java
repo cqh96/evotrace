@@ -32,6 +32,9 @@ public class Application {
     @Column(length = 64)
     private String owner;
 
+    @Column(name = "base_url", length = 255)
+    private String baseUrl;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
@@ -52,6 +55,9 @@ public class Application {
 
     public String getOwner() { return owner; }
     public void setOwner(String owner) { this.owner = owner; }
+
+    public String getBaseUrl() { return baseUrl; }
+    public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
 
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }

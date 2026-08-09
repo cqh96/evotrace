@@ -2,13 +2,12 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Bell, Plus, RefreshRight, Delete, Promotion } from '@element-plus/icons-vue'
-import { subscriptionApi } from '../api'
+import { subscriptionApi, type SubscriptionRule } from '../api'
 import { useProjectStore } from '../stores/project'
 
-interface SubRule { id: number; name: string; channel: string; enabled: boolean; createdAt: string }
 interface NotifLog { id: number; channel: string; title: string; status: string; errorMsg?: string; createdAt: string }
 
-const subscriptions = ref<SubRule[]>([])
+const subscriptions = ref<SubscriptionRule[]>([])
 const logs = ref<NotifLog[]>([])
 const loading = ref(false)
 const dialogVisible = ref(false)
@@ -19,7 +18,7 @@ const eventOptions = ['CODE_COMMIT','MR_MERGED','RELEASE_TAG','DDL_CHANGE','CONF
 const channelMap: Record<string, string> = { FEISHU: '飞书', DINGTALK: '钉钉', WECHAT: '企业微信', WEBHOOK: 'Webhook', EMAIL: '邮件' }
 
 /* ---------- 展示辅助（不参与业务逻辑） ---------- */
-const sessionChips = ref<Record<string, { projectKey: string; eventTypes: string[] }>>({})
+const sessionChips = ref<Record<number, { projectKey: string; eventTypes: string[] }>>({})
 const logoGrads = ['g-indigo', 'g-emerald', 'g-amber', 'g-violet', 'g-cyan']
 const eventLabels: Record<string, string> = {
   CODE_COMMIT: '代码提交', MR_MERGED: '合并请求', RELEASE_TAG: '发布标签',
@@ -44,7 +43,7 @@ function channelAccent(c: string) {
 }
 function trackCreated() {
   const f = form.value.filter
-  sessionChips.value[form.value.name] = {
+  sessionChips.value[Date.now()] = {
     projectKey: typeof f.projectKey === 'string' ? f.projectKey : '',
     eventTypes: Array.isArray(f.eventTypes) ? (f.eventTypes as string[]) : []
   }
@@ -53,7 +52,20 @@ function fmtTime(t?: string) { return t ? t.replace('T', ' ').substring(0, 16) :
 
 async function load() {
   loading.value = true
-  try { const [s, l] = await Promise.all([subscriptionApi.list(), subscriptionApi.logs()]); subscriptions.value = s; logs.value = l } catch {}
+  try {
+    const [s, l] = await Promise.all([subscriptionApi.list(), subscriptionApi.logs()])
+    subscriptions.value = s; logs.value = l
+    // 已有订阅的筛选信息：从后端返回的 filter 填充（key 用订阅 id，保证唯一且加载即显示）
+    const chips: Record<number, { projectKey: string; eventTypes: string[] }> = {}
+    for (const sub of s) {
+      const f = sub.filter
+      chips[sub.id] = {
+        projectKey: typeof f?.projectKey === 'string' ? f.projectKey : '',
+        eventTypes: Array.isArray(f?.eventTypes) ? (f.eventTypes as string[]) : []
+      }
+    }
+    sessionChips.value = chips
+  } catch {}
   loading.value = false
 }
 
@@ -118,9 +130,9 @@ onMounted(load)
               </div>
               <div class="sub-chips">
                 <span class="et-mini-tag" :class="channelTagCls(s.channel)">{{ channelMap[s.channel] || s.channel }}</span>
-                <template v-if="sessionChips[s.name]">
-                  <span v-if="sessionChips[s.name].projectKey" class="et-mini-tag et-tag-info">{{ sessionChips[s.name].projectKey }}</span>
-                  <span v-for="t in sessionChips[s.name].eventTypes" :key="t" class="et-mini-tag et-tag-req">{{ eventLabels[t] ?? t }}</span>
+                <template v-if="sessionChips[s.id]">
+                  <span v-if="sessionChips[s.id].projectKey" class="et-mini-tag et-tag-info">{{ sessionChips[s.id].projectKey }}</span>
+                  <span v-for="t in sessionChips[s.id].eventTypes" :key="t" class="et-mini-tag et-tag-req">{{ eventLabels[t] ?? t }}</span>
                 </template>
                 <span class="sub-time">创建于 {{ s.createdAt?.substring(0, 10) }}</span>
               </div>
@@ -170,10 +182,10 @@ onMounted(load)
         </el-form-item>
         <el-form-item v-if="form.channel==='WEBHOOK'" label="URL"><el-input v-model="form.webhookUrl" placeholder="https://..." /></el-form-item>
         <el-form-item label="项目"><el-input v-model="form.filter.projectKey" style="width:180px" /></el-form-item>
-        <el-form-item label="事件类型"><el-select v-model="form.filter.eventTypes" multiple><el-option v-for="t in eventOptions" :key="t" :value="t" /></el-select></el-form-item>
+        <el-form-item label="事件类型"><el-select v-model="form.filter.eventTypes" multiple collapse-tags collapse-tags-tooltip :max-collapse-tags="2"><el-option v-for="t in eventOptions" :key="t" :label="t" :value="t" /></el-select></el-form-item>
         <el-form-item label="文件模式"><el-input v-model="form.filter.filePattern" placeholder="**/payment/** (glob)" /></el-form-item>
       </el-form>
-      <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" @click="create; trackCreated()">创建</el-button></template>
+      <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" @click="create(); trackCreated()">创建</el-button></template>
     </el-dialog>
   </div>
 </template>

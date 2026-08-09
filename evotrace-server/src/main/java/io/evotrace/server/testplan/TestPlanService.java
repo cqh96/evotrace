@@ -67,10 +67,11 @@ public class TestPlanService {
     public Long create(Long projectId, Map<String, Object> data) {
         String name = data.get("name") != null ? data.get("name").toString() : "未命名测试计划";
         return jdbc.queryForObject("""
-                INSERT INTO test_plan(project_id, name, description, target_version, from_version, status, executor, created_by)
-                VALUES (?, ?, ?, ?, ?, 'DRAFT', ?, ?) RETURNING id
+                INSERT INTO test_plan(project_id, name, description, target_version, from_version, status, executor, created_by, environment_id)
+                VALUES (?, ?, ?, ?, ?, 'DRAFT', ?, ?, ?) RETURNING id
                 """, Long.class, projectId, name, data.get("description"), data.get("targetVersion"),
-                data.get("fromVersion"), data.get("executor"), data.get("createdBy"));
+                data.get("fromVersion"), data.get("executor"), data.get("createdBy"),
+                data.get("environmentId"));
     }
 
     @Transactional
@@ -81,6 +82,7 @@ public class TestPlanService {
         if (data.get("description") != null) { set.append("description = ?, "); args.add(data.get("description")); }
         if (data.get("targetVersion") != null) { set.append("target_version = ?, "); args.add(data.get("targetVersion")); }
         if (data.get("executor") != null) { set.append("executor = ?, "); args.add(data.get("executor")); }
+        if (data.get("environmentId") != null) { set.append("environment_id = ?, "); args.add(data.get("environmentId")); }
         if (set.length() == 0) return;
         set.append("updated_at = now()");
         args.add(planId);
@@ -111,15 +113,41 @@ public class TestPlanService {
                 SELECT * FROM test_plan WHERE id = ? AND project_id = ?
                 """, planId, projectId);
         plan.put("items", jdbc.queryForList("""
-                SELECT pi.id, pi.test_case_id AS "testCaseId", pi.sort_order AS "sortOrder",
+                SELECT pi.id, pi.test_case_id AS "testCaseId", pi.item_type AS "itemType",
+                       pi.scenario_id AS "scenarioId", pi.sort_order AS "sortOrder",
                        pi.status, pi.executor, pi.result_detail AS "resultDetail",
                        pi.executed_at AS "executedAt",
-                       tc.title, tc.priority, tc.test_type AS "testType",
+                       COALESCE(tc.title, sc.name, '场景') AS title,
+                       tc.priority, tc.test_type AS "testType",
                        tc.steps, tc.related_files AS "relatedFiles", tc.related_apis AS "relatedApis"
-                FROM test_plan_item pi JOIN test_case tc ON tc.id = pi.test_case_id
+                FROM test_plan_item pi
+                LEFT JOIN test_case tc ON tc.id = pi.test_case_id
+                LEFT JOIN api_scenario sc ON sc.id = pi.scenario_id
                 WHERE pi.plan_id = ? ORDER BY pi.sort_order, pi.id
                 """, planId));
         return plan;
+    }
+
+    /** 往计划里追加场景项（item_type=SCENARIO，复用 test_plan_item 的 scenario_id 列）。 */
+    @Transactional
+    public int addScenarioItems(Long projectId, Long planId, List<Long> scenarioIds) {
+        String status = getPlanStatus(planId);
+        if ("DONE".equals(status)) {
+            throw new IllegalArgumentException("已完成计划不可追加场景");
+        }
+        Integer maxOrder = jdbc.queryForObject(
+                "SELECT COALESCE(max(sort_order), -1) FROM test_plan_item WHERE plan_id = ?", Integer.class, planId);
+        int order = maxOrder + 1;
+        int added = 0;
+        for (Long scenarioId : scenarioIds) {
+            int updated = jdbc.update("""
+                    INSERT INTO test_plan_item(plan_id, scenario_id, item_type, sort_order, status)
+                    VALUES (?, ?, 'SCENARIO', ?, 'PENDING')
+                    ON CONFLICT (plan_id, scenario_id) DO NOTHING
+                    """, planId, scenarioId, order++);
+            added += updated;
+        }
+        return added;
     }
 
     @Transactional

@@ -499,6 +499,37 @@ button {
   font-size: 13.5px;
 }
 
+/* Hero 通用布局（统一各页面顶部） */
+.et-hero.hero-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.hero-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.hero-main h2 {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .et-hero.hero-row { flex-direction: column; align-items: stretch; }
+  .hero-actions { justify-content: flex-end; }
+}
+
 /* 渐变主按钮 */
 .el-button--primary {
   --el-button-bg-color: transparent;
@@ -547,7 +578,7 @@ button {
 .el-button {
   --el-button-bg-color: var(--et-bg-muted);
   --el-button-border-color: var(--et-border);
-  --el-button-text-color: var(--et-text-secondary);
+  --el-button-text-color: var(--et-text);
   --el-button-hover-bg-color: var(--et-bg-muted);
   --el-button-hover-border-color: var(--et-primary);
   --el-button-hover-text-color: var(--et-text);
@@ -555,7 +586,7 @@ button {
   --el-button-active-border-color: var(--et-primary);
   --el-button-active-text-color: var(--et-text);
   border-radius: 10px;
-  font-weight: 500;
+  font-weight: 600;
   transition: transform 0.15s, border-color 0.15s, color 0.15s, background 0.15s;
 }
 .el-button:hover { transform: translateY(-1px); }
@@ -691,6 +722,14 @@ button {
 .el-dialog__header {
   border-bottom: 1px solid var(--et-border);
   padding: 18px 22px;
+}
+
+.el-dialog {
+  max-width: calc(100vw - 32px);
+}
+@media (max-width: 640px) {
+  .el-dialog { width: calc(100vw - 32px) !important; }
+  .el-drawer { width: 100% !important; }
 }
 
 .el-drawer {
