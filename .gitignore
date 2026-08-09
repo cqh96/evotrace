@@ -23,3 +23,7 @@ Thumbs.db
 # TypeScript build cache
 *.tsbuildinfo
 
+# EvoTrace 自监控（本地状态与凭证，勿提交）
+.evotrace-self-state
+scripts/.self-monitor.env
+

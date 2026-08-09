@@ -62,6 +62,20 @@ cd evotrace-ui && npx vite
 
 ---
 
+## 自监控（吃自己的狗粮）
+
+EvoTrace 自身也通过本工具进行研发监控：`scripts/self-report.py` 把本地 git 提交增量上报到实例（`project_key=evotrace`），并在每次提交后由 `post-commit` 钩子自动触发。
+
+```bash
+python3 scripts/self-report.py            # 增量上报新提交
+python3 scripts/self-report.py --init     # 标记当前 HEAD 为已上报（首次接入）
+```
+
+- 凭证放 `scripts/.self-monitor.env`（已 gitignore，勿提交）
+- 上报后可在控制台选择「EvoTrace 自身监控」项目查看演化时间线、研效度量、AI 摘要等
+
+---
+
 ## 接入方式
 
 - **Java（Spring Boot）**：引入 `evotrace-spring-boot-starter`，配置 `evotrace.project-key/api-key`
