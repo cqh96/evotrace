@@ -124,6 +124,13 @@
             <version>0.6.5</version>
             <classifier>all</classifier>
         </dependency>
+        <!-- clickhouse-jdbc 的 all 包虽打标，但其驱动类依赖独立 client 构件；
+             显式引入，避免运行时 NoClassDefFoundError: com/clickhouse/client/ClickHouseClient -->
+        <dependency>
+            <groupId>com.clickhouse</groupId>
+            <artifactId>clickhouse-client</artifactId>
+            <version>0.6.5</version>
+        </dependency>
         <!-- V2.5: GitLab 仓库主动导入（JGit clone/增量） -->
         <dependency>
             <groupId>org.eclipse.jgit</groupId>
@@ -150,6 +157,12 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <!-- CI 迁移校验：mvn flyway:validate（前缀由本插件提供） -->
+            <plugin>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-maven-plugin</artifactId>
+                <version>11.14.1</version>
             </plugin>
         </plugins>
     </build>
