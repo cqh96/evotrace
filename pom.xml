@@ -58,6 +58,26 @@
                         <parameters>true</parameters>
                     </configuration>
                 </plugin>
+                <!-- CI 迁移校验：mvn flyway:validate（前缀需在根 POM 解析，故放入 pluginManagement） -->
+                <plugin>
+                    <groupId>org.flywaydb</groupId>
+                    <artifactId>flyway-maven-plugin</artifactId>
+                    <version>11.14.1</version>
+                    <dependencies>
+                        <!-- 插件自身 classpath 需含 PostgreSQL 支持，否则 validate 报 No Flyway database plugin found -->
+                        <dependency>
+                            <groupId>org.flywaydb</groupId>
+                            <artifactId>flyway-database-postgresql</artifactId>
+                            <version>11.14.1</version>
+                        </dependency>
+                        <!-- PostgreSQL JDBC 驱动同样需在插件 classpath，否则报 No JDBC driver found -->
+                        <dependency>
+                            <groupId>org.postgresql</groupId>
+                            <artifactId>postgresql</artifactId>
+                            <version>42.7.8</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
             </plugins>
         </pluginManagement>
     </build>
