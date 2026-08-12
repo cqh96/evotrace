@@ -3,8 +3,8 @@ package io.evotrace.server.clickhouse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -20,6 +20,7 @@ import java.util.Map;
  * 幂等：按 (sha256(event_id)) 或 event_id 去重，重复执行安全。
  */
 @Component
+@ConditionalOnProperty(prefix = "evotrace.clickhouse", name = "enabled", havingValue = "true")
 public class ClickhouseBackfillJob {
 
     private static final Logger log = LoggerFactory.getLogger(ClickhouseBackfillJob.class);
@@ -33,7 +34,7 @@ public class ClickhouseBackfillJob {
     @Value("${evotrace.clickhouse.backfill.batch-size:5000}")
     private int batchSize;
 
-    public ClickhouseBackfillJob(@Qualifier("dataSource") JdbcTemplate pg,
+    public ClickhouseBackfillJob(JdbcTemplate pg,
                                  ObjectProvider<ClickhouseRepository> clickhouseRepositoryProvider) {
         this.pg = pg;
         this.clickhouseRepositoryProvider = clickhouseRepositoryProvider;
