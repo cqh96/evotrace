@@ -21,7 +21,7 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       auto-offset-reset: latest
       properties:
-        spring.json.trusted.packages: "*"
+        spring.json.trusted.packages: "io.evotrace.protocol,io.evotrace.server"
         spring.json.use.type.headers: false
         spring.json.value.default.type: io.evotrace.protocol.envelope.Envelope
   ai:
@@ -40,7 +40,7 @@ evotrace:
     signature-header: X-EvoTrace-Signature
   test-executor:
     request-timeout-ms: 8000
-    insecure-tls: true
+    insecure-tls: ${EVOTRACE_TEST_INSECURE_TLS:false}
     max-response-chars: 2000
     max-steps: 20
   blob:
@@ -65,6 +65,18 @@ evotrace:
     privacy-default: STRUCTURE_ONLY   # FULL_CODE / STRUCTURE_ONLY / LOCAL_ONLY
     summary-model: ${AI_CHAT_MODEL:gpt-4o-mini}
     release-notes-model: ${AI_CHAT_MODEL:gpt-4o-mini}
+  clickhouse:
+    # V2.5 分析库：事件流/分析查询。未配置时优雅降级（不启用，仍走 PostgreSQL）。
+    enabled: ${CLICKHOUSE_ENABLED:false}
+    url: ${CLICKHOUSE_URL:jdbc:clickhouse://localhost:8123/evotrace}
+    username: ${CLICKHOUSE_USER:default}
+    password: ${CLICKHOUSE_PASSWORD:}
+    # 事件双写：true 时摄入管道同时写 ClickHouse（双写灰度过渡）
+    dual-write: ${CLICKHOUSE_DUAL_WRITE:false}
+    backfill:
+      enabled: ${CLICKHOUSE_BACKFILL_ENABLED:false}
+      cron: "0 30 4 * * *"
+      batch-size: 5000
 
 management:
   endpoints:

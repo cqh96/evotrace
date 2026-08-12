@@ -3,6 +3,7 @@ package io.evotrace.server.governance;
 import io.evotrace.common.Result;
 import io.evotrace.server.iam.SysUserRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,6 +50,7 @@ public class ProjectMemberController {
     }
 
     /** 添加成员：username + role。 */
+    @PreAuthorize("hasRole('ADMIN')")
     @Transactional
     @PostMapping
     public Result<Map<String, Object>> addMember(@PathVariable String projectKey,
@@ -71,6 +73,7 @@ public class ProjectMemberController {
         return Result.ok(Map.of("success", true, "userId", userId, "role", role));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @Transactional
     @DeleteMapping("/{memberId}")
     public Result<Void> removeMember(@PathVariable String projectKey, @PathVariable Long memberId) {

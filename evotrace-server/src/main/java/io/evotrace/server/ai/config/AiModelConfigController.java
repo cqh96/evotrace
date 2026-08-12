@@ -1,6 +1,7 @@
 package io.evotrace.server.ai.config;
 
 import io.evotrace.common.Result;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,34 +37,40 @@ public class AiModelConfigController {
         return Result.ok(service.status());
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public Result<AiModelConfig> create(@RequestBody AiModelConfig cfg) {
         return Result.ok(service.create(cfg));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public Result<AiModelConfig> update(@PathVariable Long id, @RequestBody AiModelConfig cfg) {
         return Result.ok(service.update(id, cfg));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public Result<Void> remove(@PathVariable Long id) {
         service.remove(id);
         return Result.ok(null);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/enable")
     public Result<Void> enable(@PathVariable Long id) {
         service.setEnabled(id, true);
         return Result.ok(null);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/disable")
     public Result<Void> disable(@PathVariable Long id) {
         service.setEnabled(id, false);
         return Result.ok(null);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/default")
     public Result<Void> setDefault(@PathVariable Long id) {
         service.setDefault(id);

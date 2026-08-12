@@ -1,6 +1,7 @@
 package io.evotrace.server.project;
 
 import io.evotrace.common.Result;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,11 +30,13 @@ public class CredentialController {
         return Result.ok(credentialService.list(projectKey));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/rotate")
     public Result<Map<String, String>> rotate(@PathVariable String projectKey) {
         return Result.ok(credentialService.rotate(projectKey));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{credentialId}")
     public Result<Void> revoke(@PathVariable String projectKey, @PathVariable Long credentialId) {
         credentialService.revoke(projectKey, credentialId);

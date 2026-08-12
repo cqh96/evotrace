@@ -38,4 +38,11 @@ public class JwtService {
         return Jwts.parser().verifyWith(key).build()
                 .parseSignedClaims(token).getPayload().getSubject();
     }
+
+    /** 解析角色 claim；缺失时回退为 USER，保证旧 token 降级为最小权限而非放行。 */
+    public String parseRole(String token) {
+        String role = Jwts.parser().verifyWith(key).build()
+                .parseSignedClaims(token).getPayload().get("role", String.class);
+        return (role == null || role.isBlank()) ? "USER" : role;
+    }
 }

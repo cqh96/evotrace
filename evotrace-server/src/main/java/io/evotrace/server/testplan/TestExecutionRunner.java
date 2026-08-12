@@ -63,7 +63,7 @@ public class TestExecutionRunner {
                                ApiScenarioService scenarioService,
                                ApiRepository apiRepository,
                                @Value("${evotrace.test-executor.request-timeout-ms:8000}") long stepTimeoutMs,
-                               @Value("${evotrace.test-executor.insecure-tls:true}") boolean insecureTls,
+                               @Value("${evotrace.test-executor.insecure-tls:false}") boolean insecureTls,
                                @Value("${evotrace.test-executor.max-response-chars:2000}") int maxResponseChars,
                                @Value("${evotrace.test-executor.max-steps:20}") int maxSteps) {
         this.jdbc = jdbc;

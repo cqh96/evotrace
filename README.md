@@ -17,12 +17,20 @@ EvoTrace 打通「需求 → 代码 → 测试 → 缺陷 → 发布」全链路
 | [05-开源对标设计与优化.md](docs/05-开源对标设计与优化.md) | 竞品对标（Gitness/Reflow/MeterSphere/GitLab）与迭代方向 |
 | [08-TAPD企业版功能分析报告.md](docs/08-TAPD企业版功能分析报告.md) | TAPD 企业版全功能分析（分类目录/功能描述/对比/建议） |
 | [09-EvoTrace与TAPD差距分析.md](docs/09-EvoTrace与TAPD差距分析.md) | EvoTrace 与 TAPD 逐模块差距与补建优先级（P0/P1/P2） |
+| [10-链路增强与补齐方案.md](docs/10-链路增强与补齐方案.md) | Trace Core 全期方案 + Phase A 表结构/API/前端细规 |
+| [11-PhaseA-Issue清单.md](docs/11-PhaseA-Issue清单.md) | Phase A 可跟踪 Issue 列表（含 gh 创建模板） |
+| [12-链路方案评估.md](docs/12-链路方案评估.md) | 10/11 方案评估报告（优点/问题/优先级 P0-P2） |
+| [13-数据库设计文档.md](docs/13-数据库设计文档.md) | 数据库设计（表结构/索引/分区策略） |
+| [14-安全设计文档.md](docs/14-安全设计文档.md) | 安全设计（认证/权限/数据安全/风险清单） |
+| [15-用户手册.md](docs/15-用户手册.md) | 用户手册（按角色功能操作指南） |
 
 ---
 
 ## 技术基线
 
-JDK 21 · Spring Boot 4.0 · Spring AI 2.0 · PostgreSQL 16(pgvector) · Neo4j 5 · Kafka 3 · MinIO · Redis · ES 8 · Vue 3
+JDK 21 · Spring Boot 4.0 · Spring AI 2.0 · PostgreSQL 16(pgvector) · Kafka 3 · Redis · ClickHouse（V2.5 分析库，可选）· Vue 3
+
+> 说明：依赖图基于 PostgreSQL 表 + BFS 实现（非 Neo4j）；blob/diff 当前存本地磁盘（`evotrace.blob.dir`），MinIO/S3 迁移在路线图中；全文检索走 PostgreSQL，未引入 ES。
 
 ---
 
@@ -32,11 +40,11 @@ JDK 21 · Spring Boot 4.0 · Spring AI 2.0 · PostgreSQL 16(pgvector) · Neo4j 5
 | --- | --- |
 | `evotrace-common` | 共享内核（Result、错误码） |
 | `evotrace-protocol` | 统一事件协议 Envelope v1 |
-| `evotrace-server` | 平台服务端——116 个 Java 源文件，Modulith 架构 |
+| `evotrace-server` | 平台服务端——150+ 个 Java 源文件，包级 Modulith 架构 |
 | `evotrace-sdk-java` | Spring Boot Starter——零侵入自动上报（依赖/配置/API 清单） |
 | `evotrace-cli` | 多语言 CLI 扫描器（Go/Python/Vue/Node） |
 | `evotrace-ai-prompts` | 8 个 Prompt 模板（摘要/用例/PR/审查/原型/需求展开等） |
-| `evotrace-ui` | Vue3 Web 控制台——12 个功能页面 |
+| `evotrace-ui` | Vue3 Web 控制台——30 个功能视图 |
 | `evotrace-vscode` | VS Code / Cursor 插件 |
 | `evotrace-idea` | IntelliJ IDEA 插件（文件历史 / 项目面板） |
 
@@ -105,8 +113,10 @@ python3 scripts/self-report.py --init     # 标记当前 HEAD 为已上报（首
 | **PM/QA/Ops** | 研效度量（交付率/逃逸率/吞吐/周期） | `/metrics` |
 | **PM/QA** | 缺陷管理（状态流转 + 看板 + 追溯） | `/bugs` |
 | **PM/Ops** | 自动化规则引擎（事件触发动作） | `/automation` |
-| **PM** | 反馈管理（AI 转需求/缺陷） | `/feedback` |
+| **PM/Ops** | 反馈管理（AI 转需求/缺陷） | `/feedback` |
 | **PM** | 项目成员与角色权限 | `/members` |
+| **PM/Ops** | 链路治理中心（未关联/待确认/悬空键/断链） | `/trace-governance` |
+| **PM/Ops** | 版本全景（版本就绪度与门禁 + 重建变更集） | `/release-cockpit` |
 | **Dev** | VS Code / IDEA 右键文件 → 演化历史 | 插件 |
 
 ---
@@ -132,12 +142,16 @@ python3 scripts/self-report.py --init     # 标记当前 HEAD 为已上报（首
 | V15 | 测试平台增强——用例版本/导入导出/报告/定时 |
 | V16 | UI 测试——Selenium 用例 |
 | V17 | DevOps 治理——自动化规则/项目成员/反馈/研效度量 |
+| V18 | Trace Core——req_key / 关联规则 / artifact_link / 治理忽略表 |
+| V19 | Trace Core 修正——change_event.message / REQ 规则正则放宽 |
 
 ---
 
 ## 项目状态
 
-**V2.0 已完成** — 116+ 个服务端源文件，40+ 个 API 端点，12+ 个前端页面，VS Code + IDEA 双插件，全链路打通并上线 http://43.155.130.69。
+**V2.5 已完成** — 150+ 个服务端源文件，60+ 个 API 端点，30 个前端视图，VS Code + IDEA 双插件，Helm Chart + ClickHouse 分析库，全链路打通并上线 http://43.155.130.69。
+
+**V2.1（Trace Core Phase A）已完成** — 需求键（req_key）、关联规则引擎、链路治理中心、需求/版本全景、Trace Core API + 前端页面落地。
 
 **迭代方向**（详见 [05-开源对标设计与优化.md](docs/05-开源对标设计与优化.md)）：
 - **P0** 需求状态时间线 UI · 质量门禁规则配置化

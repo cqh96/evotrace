@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend build & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Build & unit test
+        run: mvn -B -T 1C clean verify
+
+  frontend:
+    name: Frontend type-check & build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: evotrace-ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: evotrace-ui/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check & build
+        run: npm run build
+
+  flyway:
+    name: Flyway migration validate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: evotrace
+          POSTGRES_PASSWORD: evotrace
+          POSTGRES_DB: evotrace
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U evotrace"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Validate migrations against real PostgreSQL
+        run: >-
+          mvn -B -pl evotrace-server -am
+          -DskipTests package flyway:validate
+          -Dflyway.url=jdbc:postgresql://localhost:5432/evotrace
+          -Dflyway.user=evotrace
+          -Dflyway.password=evotrace

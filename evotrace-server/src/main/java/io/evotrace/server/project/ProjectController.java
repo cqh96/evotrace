@@ -1,6 +1,7 @@
 package io.evotrace.server.project;
 
 import io.evotrace.common.Result;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,6 +37,7 @@ public class ProjectController {
     public record CreateRequest(String projectKey, String name, String repoUrl) {
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public Result<Map<String, String>> create(@RequestBody CreateRequest request) {
         return Result.ok(projectService.create(request.projectKey(), request.name(), request.repoUrl()));
@@ -45,6 +47,7 @@ public class ProjectController {
     }
 
     /** 项目下线/停用或重新启用：body { "status": "ACTIVE|SUSPENDED|PAUSED|OFFLINE" } */
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{projectKey}/status")
     public Result<Void> setStatus(@PathVariable String projectKey, @RequestBody StatusRequest request) {
         projectService.setStatus(projectKey, request.status());
