@@ -7,7 +7,7 @@ import {
   DataAnalysis, Timer, Switch, ChatDotRound, Connection, TrendCharts, Bell,
   Monitor, Fold, Expand, SwitchButton, Sunny, Moon, Checked, Setting,
   Search, ArrowRight, User, Files, Tickets, PieChart, Aim, Odometer, Link, DataLine,
-  Warning, MagicStick, Lightning
+  Warning, MagicStick, Lightning, Box, FolderOpened
 } from '@element-plus/icons-vue'
 import { projectApi, memberApi, type Project } from '../api'
 import { useProjectStore } from '../stores/project'
@@ -93,6 +93,13 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     ]
   },
   {
+    title: '链路追踪',
+    items: [
+      { path: '/trace-governance', icon: Connection, label: '链路治理中心', desc: '未关联/待确认/悬空键' },
+      { path: '/release-cockpit', icon: Odometer, label: '版本全景', desc: '版本就绪度与门禁' }
+    ]
+  },
+  {
     title: '质量与集成',
     items: [
       { path: '/test-report', icon: PieChart, label: '测试报告', desc: '可视化质量报告' },
@@ -112,6 +119,13 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     items: [
       { path: '/integration', icon: DataLine, label: '接入管理', desc: '管理项目与 SDK' },
       { path: '/model-config', icon: Setting, label: '模型配置', desc: '模型与密钥管理' }
+    ]
+  },
+  {
+    title: '平台扩展',
+    items: [
+      { path: '/plugin-market', icon: Box, label: '插件市场', desc: '解析器插件安装', roles: ['ADMIN', 'PM'] },
+      { path: '/gitlab-repos', icon: FolderOpened, label: 'GitLab 仓库', desc: '仓库导入与同步', roles: ['ADMIN', 'PM', 'OPS'] }
     ]
   },
   {

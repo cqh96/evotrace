@@ -31,8 +31,12 @@ const router = createRouter({
         { path: 'metrics', name: 'metrics', component: () => import('../views/DevMetricsView.vue'), meta: { title: '研效度量' } },
         { path: 'bugs', name: 'bugs', component: () => import('../views/BugManagementView.vue'), meta: { title: '缺陷管理' } },
         { path: 'automation', name: 'automation', component: () => import('../views/AutomationRuleView.vue'), meta: { title: '自动化规则' } },
+        { path: 'trace-governance', name: 'trace-governance', component: () => import('../views/TraceGovernanceView.vue'), meta: { title: '链路治理中心' } },
+        { path: 'release-cockpit', name: 'release-cockpit', component: () => import('../views/ReleaseCockpitView.vue'), meta: { title: '版本全景' } },
         { path: 'feedback', name: 'feedback', component: () => import('../views/FeedbackView.vue'), meta: { title: '反馈管理' } },
-        { path: 'members', name: 'members', component: () => import('../views/MemberView.vue'), meta: { title: '项目成员' } }
+        { path: 'members', name: 'members', component: () => import('../views/MemberView.vue'), meta: { title: '项目成员' } },
+        { path: 'plugin-market', name: 'plugin-market', component: () => import('../views/PluginMarketView.vue'), meta: { title: '解析器插件市场' } },
+        { path: 'gitlab-repos', name: 'gitlab-repos', component: () => import('../views/GitlabReposView.vue'), meta: { title: 'GitLab 仓库' } }
       ]
     }
   ]

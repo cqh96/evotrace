@@ -1,0 +1,82 @@
+# =============================================================================
+# EvoTrace 生产环境覆盖值
+# 用法：helm install evotrace charts/evotrace -n evotrace -f values-prod.yaml
+# =============================================================================
+
+replicaCount:
+  server: 3
+  worker: 2
+
+resources:
+  server:
+    limits:
+      cpu: "4"
+      memory: 4Gi
+    requests:
+      cpu: "1"
+      memory: 2Gi
+  worker:
+    limits:
+      cpu: "4"
+      memory: 4Gi
+    requests:
+      cpu: "1"
+      memory: 2Gi
+
+# 生产环境打开自动扩缩容
+autoscaling:
+  enabled: true
+  server:
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+
+# 生产环境启用 Pod 中断预算，保证滚动更新可用性
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# 生产环境通过 Ingress 对外暴露（请替换为真实域名）
+ingress:
+  enabled: true
+  className: nginx
+  host: evotrace.example.com
+  path: /
+  pathType: Prefix
+  tls:
+    enabled: true
+    secretName: evotrace-tls
+
+# 生产环境建议使用外部托管的 PostgreSQL/Redis/Kafka/ClickHouse/MinIO，
+# 通过下面的值覆盖连接地址（示例，请按实际环境修改）：
+#
+# external:
+#   postgresql:
+#     url: "jdbc:postgresql://rds.example.com:5432/evotrace"
+#     username: evotrace
+#     password: <from-secret>
+#   redis:
+#     host: redis.example.com
+#     port: "6379"
+#     password: <from-secret>
+#   kafka:
+#     bootstrapServers: "kafka.example.com:9092"
+#   clickhouse:
+#     url: "jdbc:clickhouse://clickhouse.example.com:8123/evotrace"
+#     username: default
+#     password: <from-secret>
+#   minio:
+#     endpoint: "https://minio.example.com"
+#     accessKey: <access-key>
+#     secretKey: <secret-key>
+#     bucket: evotrace
+
+app:
+  springProfiles: "prod"
+  ai:
+    baseUrl: "https://ark.cn-beijing.volces.com/api/v3"
+    # apiKey: <from-secret>
+    chatModel: "doubao-1-5-pro-32k"
+  evotrace:
+    serverUrl: "https://evotrace.example.com"
+    blobDir: "/data/evotrace/blob"

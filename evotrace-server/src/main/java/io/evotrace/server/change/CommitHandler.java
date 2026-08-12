@@ -8,6 +8,7 @@ import io.evotrace.server.governance.AutomationRuleService;
 import io.evotrace.server.iteration.Iteration;
 import io.evotrace.server.iteration.IterationRepository;
 import io.evotrace.server.project.ProjectRepository;
+import io.evotrace.server.trace.LinkRuleEngineService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
@@ -36,6 +37,7 @@ public class CommitHandler extends SimpleEventHandler {
     private final IterationRepository iterationRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final AutomationRuleService automationRuleService;
+    private final LinkRuleEngineService linkRuleEngine;
 
     /** Auto code review on every commit — off by default (AI cost). */
     @Value("${evotrace.code-review.auto-enabled:false}")
@@ -46,12 +48,14 @@ public class CommitHandler extends SimpleEventHandler {
                          ProjectRepository projectRepository,
                          IterationRepository iterationRepository,
                          KafkaTemplate<String, String> kafkaTemplate,
-                         AutomationRuleService automationRuleService) {
+                         AutomationRuleService automationRuleService,
+                         LinkRuleEngineService linkRuleEngine) {
         super(changeEventRepository, projectRepository);
         this.changeFileRepository = changeFileRepository;
         this.iterationRepository = iterationRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.automationRuleService = automationRuleService;
+        this.linkRuleEngine = linkRuleEngine;
     }
 
     @Override
@@ -85,6 +89,14 @@ public class CommitHandler extends SimpleEventHandler {
                     "author", payload.authorName() != null ? payload.authorName() : ""));
         } catch (Exception e) {
             log.warn("automation rule on commit skipped: {}", e.getMessage());
+        }
+        // Trace v2：对 commit message / branch 应用关联规则（失败不影响主流程）
+        try {
+            CodeCommitPayload payload = convertPayload(envelope.payload());
+            linkRuleEngine.onCommit(event.getProjectId(), event.getEventId(),
+                    payload.message(), payload.branch(), payload.authorName());
+        } catch (Exception e) {
+            log.warn("trace link rule on commit skipped: {}", e.getMessage());
         }
     }
 

@@ -26,6 +26,7 @@ export interface TimelineEvent {
 }
 
 export interface Release {
+  id?: number
   version: string
   baseCommit?: string
   tag?: string
@@ -939,4 +940,256 @@ export const memberApi = {
   remove: (projectKey: string, id: number): Promise<void> => client.delete(`/projects/${projectKey}/members/${id}`),
   me: (projectKey: string, username = 'admin'): Promise<{ role: string; roles: string[] }> =>
     client.get(`/projects/${projectKey}/members/me`, { params: { username } })
+}
+
+// ========== Trace Core / 链路增强（Phase A，docs/10 §8） ==========
+
+export interface TraceSettings {
+  req_key_prefix?: string
+  reqKeyPrefix?: string
+  auto_link_enabled?: boolean
+  autoLinkEnabled?: boolean
+  hash_issue_enabled?: boolean
+  hashIssueEnabled?: boolean
+  ai_suggest_enabled?: boolean
+  aiSuggestEnabled?: boolean
+  branchTemplate?: string
+  commitTemplate?: string
+}
+
+export interface LinkRule {
+  id: number
+  name: string
+  enabled: boolean
+  priority: number
+  pattern: string
+  extract_group?: string
+  extractGroup?: string
+  apply_to?: string
+  applyTo?: string
+  link_type?: string
+  linkType?: string
+  confidence: number
+}
+
+export interface GovernanceSummary {
+  unlinkedChanges: number
+  pendingLinks: number
+  danglingKeys: number
+  brokenChains: {
+    reqWithoutCode: number
+    reqWithoutCase: number
+    reqWithBlockingBugs: number
+    releaseWithoutGate: number
+  }
+}
+
+export interface UnlinkedChange {
+  eventId: string
+  commitSha?: string
+  message?: string
+  author?: string
+  branch?: string
+  occurredAt?: string
+  suggestedRequirements: { id: number; reqKey: string; title: string; confidence: number; reason: string }[]
+}
+
+export interface PendingLink {
+  id: number
+  fromType: string
+  fromId: string
+  toType: string
+  toId: string
+  linkType: string
+  confidence: number
+  source: string
+  meta: Record<string, any>
+}
+
+export interface DanglingKey {
+  matchedKey: string
+  eventId: string
+  message?: string
+  occurredAt?: string
+}
+
+export interface BrokenChainReq {
+  id: number
+  reqKey?: string
+  title: string
+  status: string
+  targetVersion?: string
+}
+
+export interface CompletenessCheck {
+  key: string
+  passed: boolean
+  weight: number
+  detail?: string
+}
+
+export interface Completeness {
+  score: number
+  checks: CompletenessCheck[]
+}
+
+export interface RequirementOverview {
+  requirement: {
+    id: number
+    reqKey?: string
+    title: string
+    status: string
+    priority?: string
+    targetVersion?: string
+    iterationId?: number
+  }
+  completeness: Completeness
+  links: {
+    changes: { linkId: number; eventId: string; commitSha?: string; message?: string; confidence: number; source: string }[]
+    testCases: { id: number; title: string; priority: string }[]
+    bugs: { id: number; title: string; severity: string; status: string }[]
+    releases: { id: number; linkId: number; version: string; linkType: string }[]
+  }
+  tasks: unknown[]
+  tracePath: Record<string, unknown>[]
+}
+
+export interface ReleaseOverview {
+  release: { id: number; version: string; baseCommit?: string; status?: string; releasedAt?: string }
+  completeness: Completeness
+  requirements: { id: number; reqKey?: string; title: string; status: string; completenessScore: number }[]
+  changes: { total: number; linked: number; unlinked: number; items: { linkId: number; eventId: string; message?: string; reqKeys?: string }[] }
+  bugs: { openP0P1: number; items: { id: number; title: string; severity: string; status: string }[] }
+  qualityGate: { status?: string; score?: number; checkedAt?: string; checkResults?: Record<string, any> }
+  testSummary: { planCount: number; passRate: number; failed: number }
+  tracePath: Record<string, unknown>[]
+}
+
+export interface TraceNode {
+  type: string
+  id: string
+  title?: string
+  reqKey?: string
+}
+
+export const traceApi = {
+  // 设置与规则
+  settings: (projectKey: string): Promise<TraceSettings> => client.get(`/projects/${projectKey}/trace/settings`),
+  updateSettings: (projectKey: string, data: Partial<TraceSettings>): Promise<TraceSettings> =>
+    client.put(`/projects/${projectKey}/trace/settings`, data),
+  rules: (projectKey: string): Promise<LinkRule[]> => client.get(`/projects/${projectKey}/trace/rules`),
+  createRule: (projectKey: string, data: Partial<LinkRule>): Promise<LinkRule> =>
+    client.post(`/projects/${projectKey}/trace/rules`, data),
+  updateRule: (projectKey: string, id: number, data: Partial<LinkRule>): Promise<LinkRule> =>
+    client.put(`/projects/${projectKey}/trace/rules/${id}`, data),
+  deleteRule: (projectKey: string, id: number): Promise<void> => client.delete(`/projects/${projectKey}/trace/rules/${id}`),
+  seedDefaults: (projectKey: string): Promise<void> => client.post(`/projects/${projectKey}/trace/rules/seed-defaults`),
+
+  // 边 CRUD / 确认 / 驳回 / 忽略 / 批量
+  createLink: (projectKey: string, data: Record<string, any>): Promise<Record<string, any>> =>
+    client.post(`/projects/${projectKey}/trace/links`, data),
+  deleteLink: (projectKey: string, id: number, actor?: string): Promise<void> =>
+    client.delete(`/projects/${projectKey}/trace/links/${id}`, { data: { actor } }),
+  confirmLink: (projectKey: string, id: number, actor?: string): Promise<{ updated: number }> =>
+    client.post(`/projects/${projectKey}/trace/links/${id}/confirm`, { actor }),
+  rejectLink: (projectKey: string, id: number, reason: string, actor?: string): Promise<{ updated: number }> =>
+    client.post(`/projects/${projectKey}/trace/links/${id}/reject`, { reason, actor }),
+  ignoreOrphan: (projectKey: string, changeEventId: string, reason: string, actor?: string): Promise<void> =>
+    client.post(`/projects/${projectKey}/trace/links/ignore-orphan`, { changeEventId, reason, actor }),
+  batchConfirm: (projectKey: string, ids: number[], actor?: string): Promise<{ confirmed: number }> =>
+    client.post(`/projects/${projectKey}/trace/links/batch-confirm`, { ids, actor }),
+
+  // 治理中心
+  governanceSummary: (projectKey: string): Promise<GovernanceSummary> =>
+    client.get(`/projects/${projectKey}/trace/governance/summary`),
+  unlinkedChanges: (projectKey: string, params: Record<string, any>): Promise<{ items: UnlinkedChange[]; total: number }> =>
+    client.get(`/projects/${projectKey}/trace/governance/unlinked-changes`, { params }),
+  pendingLinks: (projectKey: string): Promise<PendingLink[]> =>
+    client.get(`/projects/${projectKey}/trace/governance/pending-links`),
+  danglingKeys: (projectKey: string): Promise<{ items: DanglingKey[]; total: number }> =>
+    client.get(`/projects/${projectKey}/trace/governance/dangling-keys`),
+  createRequirementFromDangling: (projectKey: string, data: { matchedKey: string; eventId?: string; title?: string; actor?: string }): Promise<{ id: number; reqKey: string }> =>
+    client.post(`/projects/${projectKey}/trace/governance/dangling-keys/create-requirement`, data),
+  brokenChains: (projectKey: string, type: string): Promise<BrokenChainReq[]> =>
+    client.get(`/projects/${projectKey}/trace/governance/broken-chains`, { params: { type } }),
+
+  // 需求 / 版本全景
+  requirementOverview: (projectKey: string, requirementId: number): Promise<RequirementOverview> =>
+    client.get(`/projects/${projectKey}/trace/overview/requirement/${requirementId}`),
+  releaseOverview: (projectKey: string, releaseId: number): Promise<ReleaseOverview> =>
+    client.get(`/projects/${projectKey}/trace/overview/release/${releaseId}`),
+  rebuildChangeset: (projectKey: string, releaseId: number): Promise<{ rebuiltChanges: number; releaseId: number }> =>
+    client.post(`/projects/${projectKey}/trace/overview/release/${releaseId}/rebuild-changeset`),
+
+  // 节点邻接
+  node: (projectKey: string, type: string, id: string): Promise<{ node: TraceNode; outbound: any[]; inbound: any[] }> =>
+    client.get(`/projects/${projectKey}/trace/node/${type}/${id}`)
+}
+
+// ========== 解析器插件市场（V2.5） ==========
+
+export interface PluginCatalogItem {
+  pluginId: string
+  name: string
+  category: string
+  description?: string
+  author?: string
+  compatRange?: string
+  createdAt: string
+}
+export interface PluginRelease {
+  pluginId: string
+  version: string
+  minVersion?: string
+  maxVersion?: string
+  sha256: string
+  createdAt: string
+}
+export interface PluginInstall {
+  pluginId: string
+  version: string
+  enabled: boolean
+  installedAt: string
+  name?: string
+  category?: string
+}
+export const pluginApi = {
+  catalog: (): Promise<PluginCatalogItem[]> => client.get('/plugins/catalog'),
+  releases: (pluginId: string): Promise<PluginRelease[]> => client.get(`/plugins/${pluginId}/releases`),
+  install: (pluginId: string, version: string): Promise<void> => client.post('/plugins/install', { pluginId, version }),
+  toggle: (pluginId: string, enabled: boolean): Promise<void> => client.put(`/plugins/${pluginId}/enable`, { enabled }),
+  uninstall: (pluginId: string): Promise<void> => client.delete(`/plugins/${pluginId}/uninstall`),
+  installed: (): Promise<PluginInstall[]> => client.get('/plugins/installed')
+}
+
+// ========== GitLab 仓库集成（V2.5） ==========
+
+export interface GitlabRepo {
+  id: number
+  repoPath: string
+  defaultBranch: string
+  cloneStatus: string
+  lastSyncedSha?: string
+  scheduleCron?: string
+  lastError?: string
+  updatedAt: string
+}
+export interface GitlabSyncLog {
+  syncType: string
+  status: string
+  commitsCount: number
+  message?: string
+  startedAt: string
+  finishedAt?: string
+}
+export const gitlabApi = {
+  connect: (projectKey: string, data: { baseUrl: string; authType?: string; token: string; namespace?: string }): Promise<void> =>
+    client.post(`/projects/${projectKey}/gitlab/connect`, data),
+  importRepo: (projectKey: string, repoPath: string, defaultBranch?: string): Promise<{ repoId: number; status: string; commits: number }> =>
+    client.post(`/projects/${projectKey}/gitlab/repos/import`, { repoPath, defaultBranch }),
+  sync: (projectKey: string, id: number): Promise<{ repoId: number; status: string; newCommits: number }> =>
+    client.post(`/projects/${projectKey}/gitlab/repos/${id}/sync`),
+  repos: (projectKey: string): Promise<GitlabRepo[]> => client.get(`/projects/${projectKey}/gitlab/repos`),
+  logs: (projectKey: string, id: number): Promise<GitlabSyncLog[]> =>
+    client.get(`/projects/${projectKey}/gitlab/repos/${id}/logs`)
 }

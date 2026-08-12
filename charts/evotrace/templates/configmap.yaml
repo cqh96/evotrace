@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "evotrace.fullname" . }}-config
+  labels:
+    {{- include "evotrace.labels" . | nindent 4 }}
+data:
+  # 应用运行所依赖的非敏感配置。
+  # 注意：本 ConfigMap 不包含任何敏感口令，口令统一放在 Secret 中。
+  SPRING_PROFILES_ACTIVE: {{ .Values.app.springProfiles | quote }}
+  EVOTRACE_APP_AI_BASEURL: {{ .Values.app.ai.baseUrl | quote }}
+  EVOTRACE_APP_AI_CHATMODEL: {{ .Values.app.ai.chatModel | quote }}
+  EVOTRACE_APP_EVOTRACE_BLOBDIR: {{ .Values.app.evotrace.blobDir | quote }}
+  {{- if .Values.app.evotrace.serverUrl }}
+  EVOTRACE_APP_EVOTRACE_SERVERURL: {{ .Values.app.evotrace.serverUrl | quote }}
+  {{- end }}
+  # 外部依赖连接地址
+  EVOTRACE_EXTERNAL_POSTGRESQL_URL: {{ .Values.external.postgresql.url | quote }}
+  EVOTRACE_EXTERNAL_POSTGRESQL_USERNAME: {{ .Values.external.postgresql.username | quote }}
+  EVOTRACE_EXTERNAL_REDIS_HOST: {{ .Values.external.redis.host | quote }}
+  EVOTRACE_EXTERNAL_REDIS_PORT: {{ .Values.external.redis.port | quote }}
+  EVOTRACE_EXTERNAL_KAFKA_BOOTSTRAPSERVERS: {{ .Values.external.kafka.bootstrapServers | quote }}
+  EVOTRACE_EXTERNAL_CLICKHOUSE_URL: {{ .Values.external.clickhouse.url | quote }}
+  EVOTRACE_EXTERNAL_CLICKHOUSE_USERNAME: {{ .Values.external.clickhouse.username | quote }}
+  EVOTRACE_EXTERNAL_MINIO_ENDPOINT: {{ .Values.external.minio.endpoint | quote }}
+  EVOTRACE_EXTERNAL_MINIO_BUCKET: {{ .Values.external.minio.bucket | quote }}
+  {{- range $key, $value := .Values.app.extraEnv }}
+  {{ $key | upper }}: {{ $value | quote }}
+  {{- end }}

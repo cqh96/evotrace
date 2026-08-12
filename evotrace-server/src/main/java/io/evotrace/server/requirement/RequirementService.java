@@ -6,6 +6,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.evotrace.server.trace.ReqKeyService;
+
 import java.util.List;
 import java.util.Map;
 
@@ -18,8 +20,12 @@ public class RequirementService {
 
     private static final Logger log = LoggerFactory.getLogger(RequirementService.class);
     private final JdbcTemplate jdbc;
+    private final ReqKeyService reqKeyService;
 
-    public RequirementService(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    public RequirementService(JdbcTemplate jdbc, ReqKeyService reqKeyService) {
+        this.jdbc = jdbc;
+        this.reqKeyService = reqKeyService;
+    }
 
     /** List requirements for a project with linked code/test/bug/task/doc counts */
     public List<Map<String, Object>> list(Long projectId, String status) {
@@ -135,6 +141,8 @@ public class RequirementService {
                     INSERT INTO requirement_status_history(requirement_id, status, actor, entered_at)
                     VALUES (?, ?, ?, now())
                     """, newId, status, data.getOrDefault("productManager", "PM"));
+            // Trace v2：创建需求后回写 req_key = prefix || '-' || id
+            reqKeyService.backfillOnCreate(projectId, newId);
             id = newId;
         }
         return Map.of("success", true, "id", id);

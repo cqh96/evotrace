@@ -1,0 +1,143 @@
+# =============================================================================
+# EvoTrace 默认配置（集中管理）
+# -----------------------------------------------------------------------------
+# 说明：所有敏感口令（postgres/redis/kafka/clickhouse/minio 密码、ai apiKey）
+#       集中在 templates/secret.yaml 中渲染，ConfigMap 不包含任何敏感信息。
+#       环境变量统一以 EVOTRACE_ 为前缀注入，便于 Spring Boot 通过
+#       relaxed binding 覆盖 application.yml 中的配置项。
+# =============================================================================
+
+# 镜像配置
+image:
+  repository: registry.example.com/evotrace-server
+  tag: ""                    # 为空时使用 Chart.yaml 的 appVersion 作为默认 tag
+  pullPolicy: IfNotPresent
+  # 各组件的镜像仓库可单独覆盖（默认继承 image.repository 前缀）
+  server:
+    repository: registry.example.com/evotrace-server
+    tag: ""
+  worker:
+    repository: registry.example.com/evotrace-worker
+    tag: ""
+  ui:
+    repository: registry.example.com/evotrace-ui
+    tag: ""
+
+# 副本数
+replicaCount:
+  server: 2
+  worker: 1
+
+# 拉取镜像所需的私有仓库凭证
+imagePullSecrets: []
+#  - name: regcred
+
+# 服务名覆盖（默认使用 ".Release.Name"）
+nameOverride: ""
+fullnameOverride: ""
+
+# Service 配置
+service:
+  type: ClusterIP
+  port: 8080
+  portName: http
+
+# Ingress 配置
+ingress:
+  enabled: false
+  className: nginx
+  host: evotrace.example.com
+  path: /
+  pathType: Prefix
+  tls:
+    enabled: false
+    secretName: evotrace-tls
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+
+# 资源配额
+resources:
+  server:
+    limits:
+      cpu: "2"
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  worker:
+    limits:
+      cpu: "2"
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+# 自动扩缩容（仅 server）
+autoscaling:
+  enabled: false
+  server:
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Pod 中断预算（可用性保证）
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# ServiceAccount
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# RBAC（如需读取 secret 等资源，可开启最小权限）
+rbac:
+  enabled: false
+  # 需要读取的 Secret 名称（用于 role/rolebinding 的 resourceNames）
+  secretNames: []
+
+# -----------------------------------------------------------------------------
+# 外部依赖连接配置
+# -----------------------------------------------------------------------------
+external:
+  postgresql:
+    url: "jdbc:postgresql://postgres:5432/evotrace"
+    username: evotrace
+    password: changeme-postgres
+  redis:
+    host: redis
+    port: "6379"
+    password: changeme-redis
+  kafka:
+    bootstrapServers: "kafka:9092"
+  clickhouse:
+    url: "jdbc:clickhouse://clickhouse:8123/evotrace"
+    username: default
+    password: changeme-clickhouse
+  minio:
+    endpoint: "http://minio:9000"
+    accessKey: minioadmin
+    secretKey: changeme-minio
+    bucket: evotrace
+
+# -----------------------------------------------------------------------------
+# 应用配置
+# -----------------------------------------------------------------------------
+app:
+  # Spring Profiles
+  springProfiles: "k8s"
+  # AI 配置
+  ai:
+    baseUrl: "https://ark.cn-beijing.volces.com/api/v3"
+    apiKey: changeme-ai-apikey
+    chatModel: "doubao-1-5-pro-32k"
+  # EvoTrace 平台配置
+  evotrace:
+    serverUrl: ""                    # 对外访问地址，留空则基于 ingress host 自动推导
+    blobDir: "/data/evotrace/blob"   # 文件存储目录（建议挂卷覆盖）
+  # 其它需要覆盖的 Spring 配置项（key 转大写替换 . 为 _ 后注入）
+  extraEnv: {}
+    # LOG_LEVEL: "INFO"

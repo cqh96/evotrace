@@ -40,7 +40,7 @@ public class ReleaseController {
     @GetMapping
     public Result<List<Map<String, Object>>> list(@PathVariable String projectKey) {
         return Result.ok(jdbcTemplate.queryForList("""
-                SELECT r.version, r.base_commit AS "baseCommit", r.tag, r.env, r.released_at AS "releasedAt",
+                SELECT r.id, r.version, r.base_commit AS "baseCommit", r.tag, r.env, r.released_at AS "releasedAt",
                        (SELECT s.content FROM ai_semantic_unit s
                          WHERE s.target_type = 'RELEASE' AND s.target_id = r.id::text AND s.kind = 'RELEASE_NOTE'
                          LIMIT 1) AS "releaseNote"

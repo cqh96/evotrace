@@ -285,9 +285,110 @@ GET  /api/v1/projects/{key}/trace
 
 ---
 
-## 10. 通用
+## 10. 链路追踪（Trace Core / Phase A）
 
-### 10.1 Dashboard
+> 对应 `docs/10-链路增强与补齐方案.md` §8.4；统一响应 `{ success, code, message, data }`。
+> 鉴权：控制台 `Authorization: Bearer <JWT>`。A 期受 `evotrace.trace.v2.enabled` 开关与 `project_trace_setting.auto_link_enabled` 控制。
+
+### 10.1 设置与关联规则
+
+```http
+GET    /api/v1/projects/{key}/trace/settings                 # 读取链路设置
+PUT    /api/v1/projects/{key}/trace/settings                 # 更新设置（reqKeyPrefix/autoLinkEnabled/hashIssueEnabled/aiSuggestEnabled）
+GET    /api/v1/projects/{key}/trace/rules                    # 关联规则列表
+POST   /api/v1/projects/{key}/trace/rules                    # 新建规则
+PUT    /api/v1/projects/{key}/trace/rules/{id}               # 更新规则
+DELETE /api/v1/projects/{key}/trace/rules/{id}               # 删除规则
+POST   /api/v1/projects/{key}/trace/rules/seed-defaults      # 恢复默认种子规则（幂等）
+```
+
+**settings 请求体**：
+
+```json
+{ "reqKeyPrefix": "REQ", "autoLinkEnabled": true, "hashIssueEnabled": false, "aiSuggestEnabled": false }
+```
+
+**rules 请求体**：
+
+```json
+{ "name": "JIRA/Issue key", "enabled": true, "priority": 20,
+  "pattern": "(?i)\\b(?<reqKey>[A-Z][A-Z0-9]+-\\d+)\\b",
+  "extractGroup": "reqKey", "applyTo": "COMMIT_MESSAGE", "linkType": "IMPLEMENTS", "confidence": 90 }
+```
+
+### 10.2 关联边（artifact_link）
+
+```http
+POST   /api/v1/projects/{key}/trace/links                    # 手动建边
+DELETE /api/v1/projects/{key}/trace/links/{id}               # 删除边
+POST   /api/v1/projects/{key}/trace/links/{id}/confirm       # 确认待确认边
+POST   /api/v1/projects/{key}/trace/links/{id}/reject        # 驳回边（body: reason）
+POST   /api/v1/projects/{key}/trace/links/ignore-orphan      # 忽略未关联提交（body: changeEventId, reason）
+POST   /api/v1/projects/{key}/trace/links/batch-confirm      # 批量确认（body: ids[]）
+GET    /api/v1/projects/{key}/trace/node/{type}/{id}         # 节点邻接 { node, outbound, inbound }
+```
+
+**createLink 请求体**：
+
+```json
+{ "fromType": "CHANGE_EVENT", "fromId": "{eventId}",
+  "toType": "REQUIREMENT", "toId": "5", "linkType": "IMPLEMENTS",
+  "confidence": 100, "source": "MANUAL", "meta": {}, "actor": "admin" }
+```
+
+### 10.3 关联治理中心
+
+```http
+GET  /api/v1/projects/{key}/trace/governance/summary        # 概览统计
+GET  /api/v1/projects/{key}/trace/governance/unlinked-changes?page=1&size=20[&author=&branch=]
+GET  /api/v1/projects/{key}/trace/governance/pending-links  # 待确认边
+GET  /api/v1/projects/{key}/trace/governance/dangling-keys  # 悬空键
+POST /api/v1/projects/{key}/trace/governance/dangling-keys/create-requirement  # 由悬空键建需求并回链
+GET  /api/v1/projects/{key}/trace/governance/broken-chains?type=reqWithoutCode
+```
+
+**summary 响应**：
+
+```json
+{ "unlinkedChanges": 3, "pendingLinks": 2, "danglingKeys": 1,
+  "brokenChains": { "reqWithoutCode": 1, "reqWithoutCase": 2,
+                    "reqWithBlockingBugs": 0, "releaseWithoutGate": 1 } }
+```
+
+**broken-chains 的 `type` 取值**：`reqWithoutCode` / `reqWithoutCase` / `reqWithBlockingBugs` / `releaseWithoutGate`。
+
+**create-requirement 请求体**：
+
+```json
+{ "matchedKey": "REQ-5", "eventId": "{eventId}", "title": "需求标题", "actor": "admin" }
+```
+
+### 10.4 需求 / 版本全景
+
+```http
+GET  /api/v1/projects/{key}/trace/overview/requirement/{requirementId}   # 需求全景
+GET  /api/v1/projects/{key}/trace/overview/release/{releaseId}           # 版本全景（P0-3：以 releaseId 定位）
+POST /api/v1/projects/{key}/trace/overview/release/{releaseId}/rebuild-changeset  # 重建变更集
+```
+
+**需求全景响应**：`{ requirement, completeness:{score,checks[]}, links:{changes[],testCases[],bugs[],releases[]}, tasks[], tracePath[] }`。
+
+**版本全景响应**：`{ release, completeness, requirements[], changes:{total,linked,unlinked,items[]}, bugs:{openP0P1,items[]}, qualityGate, testSummary, tracePath }`。
+
+### 10.5 错误码（Trace）
+
+| 错误码 | 说明 |
+| --- | --- |
+| `PATTERN_INVALID` | 正则无法编译或缺少命名组 |
+| `REQ_KEY_INVALID` | 需求键非法 |
+| `REQ_KEY_DUPLICATE` | 需求键已存在 |
+| `TRACE_DISABLED` | Trace v2 未启用或参数不支持 |
+
+---
+
+## 11. 通用
+
+### 11.1 Dashboard
 
 ```http
 GET /api/v1/dashboard/stats
@@ -295,7 +396,7 @@ GET /api/v1/dashboard/recent-releases
 GET /api/v1/dashboard/trend
 ```
 
-### 10.2 错误码
+### 11.2 错误码
 
 | 错误码 | 说明 |
 | --- | --- |

@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { pmApi, type Requirement, type RequirementDetail, type StatusHistoryEntry } from '../../api'
+import { ElMessage } from 'element-plus'
+import { pmApi, traceApi, type Requirement, type RequirementDetail, type StatusHistoryEntry, type RequirementOverview } from '../../api'
 import RequirementDetailForm from './RequirementDetailForm.vue'
 import MarkdownEditor from './MarkdownEditor.vue'
 import RequirementTaskPanel from './RequirementTaskPanel.vue'
 import PrototypeEditor from './PrototypeEditor.vue'
+import TraceGraphPanel from '../trace/TraceGraphPanel.vue'
 
 const props = defineProps<{
   modelValue: boolean
@@ -20,13 +22,17 @@ const visible = computed({
   set: (v: boolean) => emit('update:modelValue', v)
 })
 
-const activeTab = ref('detail')
+const activeTab = ref('panorama')
 const detail = ref<RequirementDetail | null>(null)
 const loading = ref(false)
 const protoEditorVisible = ref(false)
 const statusHistory = ref<StatusHistoryEntry[]>([])
 const historyLoading = ref(false)
 const lifecycleVisible = ref(false)
+
+// 全景（Trace Core / 需求全景）
+const overview = ref<RequirementOverview | null>(null)
+const overviewLoading = ref(false)
 
 const statusLabels: Record<string, string> = { DRAFT: '草稿', REVIEW: '评审中', DEVELOPING: '开发中', TESTING: '测试中', DONE: '已完成' }
 const statusColors: Record<string, string> = { DRAFT: 'info', REVIEW: 'warning', DEVELOPING: 'primary', TESTING: 'danger', DONE: 'success' }
@@ -42,6 +48,17 @@ async function load() {
   }
 }
 
+async function loadOverview() {
+  overviewLoading.value = true
+  try {
+    overview.value = (await traceApi.requirementOverview(props.projectKey, props.requirement.id)) ?? null
+  } catch {
+    overview.value = null
+  } finally {
+    overviewLoading.value = false
+  }
+}
+
 async function loadHistory() {
   historyLoading.value = true
   try {
@@ -54,6 +71,7 @@ async function loadHistory() {
 }
 
 function onTabChange(name: string | number) {
+  if (name === 'panorama' && !overview.value) loadOverview()
   if (name === 'lifecycle' && !lifecycleVisible.value) {
     lifecycleVisible.value = true
     loadHistory()
@@ -73,12 +91,23 @@ function fmtTime(v?: string | null): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
+function compPct() {
+  return Math.round((overview.value?.completeness.score ?? 0) * 100)
+}
+function compColor(pct: number) {
+  return pct >= 80 ? '#34d399' : pct >= 50 ? '#fbbf24' : '#fb7185'
+}
+function onOpenNode(n: { type: string; id: string }) {
+  ElMessage.info(`${n.type} · ${n.id}`)
+}
+
 watch(
   () => [props.modelValue, props.requirement?.id] as const,
   ([open]) => {
     if (open) {
-      activeTab.value = 'detail'
+      activeTab.value = 'panorama'
       load()
+      loadOverview()
     }
   }
 )
@@ -107,6 +136,90 @@ watch(
     </div>
 
     <el-tabs v-model="activeTab" class="drawer-tabs" @tab-change="onTabChange">
+      <el-tab-pane label="全景" name="panorama">
+        <div v-loading="overviewLoading" class="panorama-pane">
+          <template v-if="overview">
+            <!-- 完整度 -->
+            <div class="pano-comp">
+              <div class="ring" :style="{ '--c': compColor(compPct()), '--pct': compPct() }">
+                <span class="ring-val">{{ compPct() }}<i>%</i></span>
+                <span class="ring-label">完整度</span>
+              </div>
+              <div class="checks">
+                <div v-for="c in overview.completeness.checks" :key="c.key" class="check" :class="{ pass: c.passed }">
+                  <span class="check-ic">{{ c.passed ? '✓' : '✕' }}</span>
+                  <span class="check-label">{{ c.detail || c.key }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 链路路径 -->
+            <div class="pano-block">
+              <h4>链路路径</h4>
+              <TraceGraphPanel
+                :project-key="projectKey"
+                root-type="REQUIREMENT"
+                :root-id="String(requirement.id)"
+                :path="overview.tracePath as any"
+                @open-node="onOpenNode"
+              />
+            </div>
+
+            <!-- 关联 -->
+            <div class="pano-block">
+              <h4>关联</h4>
+              <div class="link-sections">
+                <div class="link-sec">
+                  <div class="ls-head">代码 <el-tag size="small">{{ overview.links.changes.length }}</el-tag></div>
+                  <div v-if="overview.links.changes.length" class="link-list">
+                    <div v-for="ch in overview.links.changes" :key="ch.linkId" class="link-item">
+                      <span class="sha">{{ ch.commitSha || ch.eventId }}</span>
+                      <span class="msg">{{ ch.message || '' }}</span>
+                      <span class="conf" :class="ch.confidence >= 90 ? 'high' : 'low'">{{ ch.confidence }}%</span>
+                    </div>
+                  </div>
+                  <div v-else class="link-empty">无代码关联 — 提交消息请使用 {{ requirement.reqKey || 'REQ-{id}' }} 前缀</div>
+                </div>
+
+                <div class="link-sec">
+                  <div class="ls-head">测试用例 <el-tag size="small">{{ overview.links.testCases.length }}</el-tag></div>
+                  <div v-if="overview.links.testCases.length" class="link-list">
+                    <div v-for="tc in overview.links.testCases" :key="tc.id" class="link-item">
+                      <span class="msg">{{ tc.title }}</span>
+                      <span class="conf high">{{ tc.priority }}</span>
+                    </div>
+                  </div>
+                  <div v-else class="link-empty">无测试用例 — 去测试面板创建</div>
+                </div>
+
+                <div class="link-sec">
+                  <div class="ls-head">缺陷 <el-tag size="small">{{ overview.links.bugs.length }}</el-tag></div>
+                  <div v-if="overview.links.bugs.length" class="link-list">
+                    <div v-for="b in overview.links.bugs" :key="b.id" class="link-item">
+                      <span class="msg">{{ b.title }}</span>
+                      <span class="conf" :class="b.severity === 'P0' || b.severity === 'P1' ? 'low' : 'high'">{{ b.severity }}</span>
+                    </div>
+                  </div>
+                  <div v-else class="link-empty">无缺陷</div>
+                </div>
+
+                <div class="link-sec">
+                  <div class="ls-head">发布版本 <el-tag size="small">{{ overview.links.releases.length }}</el-tag></div>
+                  <div v-if="overview.links.releases.length" class="link-list">
+                    <div v-for="r in overview.links.releases" :key="r.id" class="link-item">
+                      <span class="msg">{{ r.version }}</span>
+                      <span class="conf high">{{ r.linkType }}</span>
+                    </div>
+                  </div>
+                  <div v-else class="link-empty">未纳入版本</div>
+                </div>
+              </div>
+            </div>
+          </template>
+          <el-empty v-else description="暂无全景数据" :image-size="60" />
+        </div>
+      </el-tab-pane>
+
       <el-tab-pane label="详情" name="detail">
         <RequirementDetailForm
           v-if="detail"
@@ -249,4 +362,31 @@ watch(
 .hist-actor { color: var(--et-text-muted); font-size: 12px }
 .hist-time { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--et-text-muted) }
 .hist-duration { color: var(--et-primary); font-size: 12px }
+.panorama-pane { min-height: 200px; }
+.pano-comp { display: flex; align-items: center; gap: 22px; padding: 16px 18px; border: 1px solid var(--et-border); border-radius: 14px; background: var(--et-bg-muted); margin-bottom: 14px; }
+.ring { --c: #fbbf24; width: 74px; height: 74px; border-radius: 50%; background: conic-gradient(var(--c) calc(var(--pct, 0) * 1%), var(--et-bg-muted) 0); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; flex-shrink: 0; }
+.ring::before { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: var(--et-card-solid); }
+.ring-val { position: relative; font-size: 20px; font-weight: 800; line-height: 1; }
+.ring-val i { font-style: normal; font-size: 11px; color: var(--et-text-muted); margin-left: 1px; }
+.ring-label { position: relative; font-size: 10px; color: var(--et-text-muted); margin-top: 2px; }
+.checks { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--et-text-muted); }
+.check.pass { color: #34d399; }
+.check-ic { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; background: rgba(251, 113, 133, 0.12); color: #fb7185; }
+.check.pass .check-ic { background: rgba(52, 211, 153, 0.12); color: #34d399; }
+.pano-block { margin-bottom: 16px; }
+.pano-block h4 { margin: 0 0 10px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.pano-block h4::before { content: ''; width: 4px; height: 14px; border-radius: 2px; background: linear-gradient(180deg, var(--et-grad-a), var(--et-grad-c)); }
+.link-sections { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 720px) { .link-sections { grid-template-columns: 1fr; } }
+.link-sec { border: 1px solid var(--et-border); border-radius: 12px; padding: 10px 12px; background: var(--et-bg-muted); }
+.ls-head { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; margin-bottom: 8px; }
+.link-list { display: flex; flex-direction: column; gap: 6px; }
+.link-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.sha { font-family: ui-monospace, monospace; color: var(--et-grad-c); flex-shrink: 0; }
+.msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--et-text-secondary); }
+.conf { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 20px; flex-shrink: 0; }
+.conf.high { color: #34d399; background: rgba(52, 211, 153, 0.12); }
+.conf.low { color: #fb7185; background: rgba(251, 113, 133, 0.12); }
+.link-empty { font-size: 12px; color: var(--et-text-muted); padding: 4px 0; }
 </style>

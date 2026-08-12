@@ -7,6 +7,7 @@ export type TaskStatus = 'TODO' | 'DOING' | 'DONE'
 
 export interface Requirement {
   id: number
+  reqKey?: string
   title: string
   priority?: string
   status: RequirementStatus

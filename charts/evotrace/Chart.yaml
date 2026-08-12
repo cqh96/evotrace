@@ -1,0 +1,12 @@
+apiVersion: v2
+name: evotrace
+description: EvoTrace 平台的 Helm Chart，用于部署服务端（Spring Boot）、前端静态资源（evotrace-ui）与 AI 异步 worker（evotrace-worker）。
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - evotrace
+  - spring-boot
+  - ai
+maintainers:
+  - name: EvoTrace Team

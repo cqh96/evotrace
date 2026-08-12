@@ -160,6 +160,15 @@ function reqProgress(req: Requirement): number {
   }
   return ({ DRAFT: 10, REVIEW: 30, DEVELOPING: 55, TESTING: 80, DONE: 100 } as Record<string, number>)[req.status] ?? 0
 }
+
+// 需求完整度小环（绿 ≥80 / 黄 ≥50 / 红 <50；A 期无分数时按 0 处理）
+function reqCompPct(req: Requirement): number {
+  return Math.round((req as any).completenessScore ?? 0)
+}
+function compColor(req: Requirement): string {
+  const pct = reqCompPct(req)
+  return pct >= 80 ? '#34d399' : pct >= 50 ? '#fbbf24' : '#fb7185'
+}
 </script>
 
 <template>
@@ -217,8 +226,10 @@ function reqProgress(req: Requirement): number {
                      :style="{ '--d': (i * 0.06) + 's' }" @click="openDetail(req)">
                   <div class="card-top">
                     <span class="et-mini-tag" :class="priClass(req.priority)">{{ req.priority || 'P3' }}</span>
+                    <span v-if="req.reqKey" class="req-key-chip">{{ req.reqKey }}</span>
                     <span v-if="req.targetVersion" class="ver-chip">{{ req.targetVersion }}</span>
                     <span v-if="req.estimateDays != null" class="est-chip">{{ req.estimateDays }} 人天</span>
+                    <span class="comp-dot" :style="{ background: compColor(req), color: compColor(req) }" :title="`完整度 ${reqCompPct(req)}%`"></span>
                   </div>
 
                   <div class="req-title">{{ req.title }}</div>
@@ -504,6 +515,24 @@ function reqProgress(req: Requirement): number {
   padding: 2.5px 8px;
   border-radius: 20px;
   font-variant-numeric: tabular-nums;
+}
+.req-key-chip {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--et-grad-c);
+  background: rgba(56, 225, 255, 0.1);
+  border: 1px solid rgba(56, 225, 255, 0.2);
+  padding: 2.5px 8px;
+  border-radius: 20px;
+  font-family: ui-monospace, monospace;
+}
+.comp-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-left: auto;
+  box-shadow: 0 0 8px currentColor;
+  flex-shrink: 0;
 }
 .est-chip {
   font-size: 10.5px;

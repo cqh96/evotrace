@@ -1,0 +1,71 @@
+# =========================================================================
+# EvoTrace 性能压测阈值基线
+# -------------------------------------------------------------------------
+# 本文件定义各环境（dev / staging / prod）下关键性能指标的可接受阈值，
+# 供 report.py 读取并与压测结果比对，输出 PASS / FAIL 判定。
+#
+# 指标说明：
+#   ingest.throughput.eventsPerSec  事件摄入吞吐（events/s），越高越好
+#   ingest.p95Ms                    事件摄入 P95 延迟（毫秒），越低越好，上限
+#   webhookToVisibleMs              Webhook 到可见（端到端链路）P95 延迟上限
+#   compare.p95Ms                   变更对比（compare）P95 延迟上限
+#   timeline.p95Ms                  时间线（timeline）P95 延迟上限
+#
+# 阈值语义：
+#   min：吞吐类的下限（达到即算通过）
+#   max：延迟类的上限（不超过即算通过）
+#   单位：events/s 与 ms
+#
+# 调整方法：按需修改对应环境下的数值即可，report.py 会自动读取。
+# =========================================================================
+
+# 开发环境——本地单机运行，阈值相对宽松
+dev:
+  ingest:
+    throughput:
+      eventsPerSec:
+        min: 500          # 摄入吞吐下限：>= 500 events/s
+    p95Ms:
+      max: 2000           # 摄入 P95 延迟上限：< 2000 ms
+  webhookToVisibleMs:
+    max: 10000            # Webhook 到可见上限：< 10000 ms
+  compare:
+    p95Ms:
+      max: 5000           # 对比 P95 延迟上限：< 5000 ms
+  timeline:
+    p95Ms:
+      max: 1000           # 时间线 P95 延迟上限：< 1000 ms
+
+# 预发环境——模拟生产压力，阈值略严于 dev
+staging:
+  ingest:
+    throughput:
+      eventsPerSec:
+        min: 500          # 摄入吞吐下限：>= 500 events/s
+    p95Ms:
+      max: 2000           # 摄入 P95 延迟上限：< 2000 ms
+  webhookToVisibleMs:
+    max: 10000            # Webhook 到可见上限：< 10000 ms
+  compare:
+    p95Ms:
+      max: 5000           # 对比 P95 延迟上限：< 5000 ms
+  timeline:
+    p95Ms:
+      max: 1000           # 时间线 P95 延迟上限：< 1000 ms
+
+# 生产环境——线上性能门禁，阈值最严
+prod:
+  ingest:
+    throughput:
+      eventsPerSec:
+        min: 500          # 摄入吞吐下限：>= 500 events/s
+    p95Ms:
+      max: 2000           # 摄入 P95 延迟上限：< 2000 ms
+  webhookToVisibleMs:
+    max: 10000            # Webhook 到可见上限：< 10000 ms
+  compare:
+    p95Ms:
+      max: 5000           # 对比 P95 延迟上限：< 5000 ms
+  timeline:
+    p95Ms:
+      max: 1000           # 时间线 P95 延迟上限：< 1000 ms
