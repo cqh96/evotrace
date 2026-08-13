@@ -107,6 +107,17 @@
             <artifactId>poi-ooxml</artifactId>
             <version>5.2.5</version>
         </dependency>
+        <!-- 需求文档智能解析：pdf/docx/html/txt/md 统一文本提取 -->
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-parsers-standard-package</artifactId>
+            <version>3.2.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-core</artifactId>
+            <version>3.2.3</version>
+        </dependency>
         <!-- UI 测试：Selenium WebDriver 低代码浏览器自动化 -->
         <dependency>
             <groupId>org.seleniumhq.selenium</groupId>

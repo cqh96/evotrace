@@ -21,7 +21,7 @@ public class TestCaseService {
     private static final Set<String> MUTABLE_FIELDS = Set.of(
             "title", "description", "steps", "test_type", "priority",
             "related_files", "related_apis", "tags", "requirement_id",
-            "parent_id", "node_type", "custom_fields");
+            "parent_id", "node_type", "custom_fields", "ai_generated");
 
     private final JdbcTemplate jdbc;
     private final FeishuBitableService feishuSyncService;

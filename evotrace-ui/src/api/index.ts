@@ -1182,9 +1182,18 @@ export interface GitlabSyncLog {
   startedAt: string
   finishedAt?: string
 }
+export interface GitlabConnection {
+  configured: boolean
+  baseUrl?: string
+  authType?: string
+  namespace?: string
+  tokenMasked?: string
+}
 export const gitlabApi = {
   connect: (projectKey: string, data: { baseUrl: string; authType?: string; token: string; namespace?: string }): Promise<void> =>
     client.post(`/projects/${projectKey}/gitlab/connect`, data),
+  getConnect: (projectKey: string): Promise<GitlabConnection> => client.get(`/projects/${projectKey}/gitlab/connect`),
+  disconnect: (projectKey: string): Promise<void> => client.delete(`/projects/${projectKey}/gitlab/connect`),
   importRepo: (projectKey: string, repoPath: string, defaultBranch?: string): Promise<{ repoId: number; status: string; commits: number }> =>
     client.post(`/projects/${projectKey}/gitlab/repos/import`, { repoPath, defaultBranch }),
   sync: (projectKey: string, id: number): Promise<{ repoId: number; status: string; newCommits: number }> =>

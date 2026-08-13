@@ -178,6 +178,40 @@ export interface StatusHistoryEntry {
   durationDays?: number | null
 }
 
+// ========== 需求文档智能解析 ==========
+
+export interface ParsedCase {
+  title: string
+  testType?: string
+  priority?: string
+  steps?: string
+  selected?: boolean
+}
+
+export interface ParsedRequirement {
+  title: string
+  userStory?: string
+  acceptanceCriteria?: string
+  priority?: string
+  businessValue?: string
+  suggestedCases?: ParsedCase[]
+}
+
+export interface ParsePreview {
+  parsed: boolean
+  parseId: number
+  message?: string
+  model?: string
+  docTitle?: string
+  requirements?: ParsedRequirement[]
+}
+
+export interface ImportConfirmResult {
+  success: boolean
+  requirementIds: number[]
+  caseIds: number[]
+}
+
 export const pmApi = {
   // 看板
   list: (projectKey: string, status?: string): Promise<Requirement[]> =>
@@ -253,5 +287,16 @@ export const pmApi = {
   roadmap: (projectKey: string): Promise<RoadmapVersion[]> =>
     client.get('/pm/lifecycle/roadmap', { params: { projectKey } }),
   statusFlow: (projectKey: string): Promise<StatusFlow> =>
-    client.get('/pm/lifecycle/status-flow', { params: { projectKey } })
+    client.get('/pm/lifecycle/status-flow', { params: { projectKey } }),
+
+  // 需求文档智能解析
+  parseLink: (projectKey: string, url: string, prdText?: string): Promise<ParsePreview> =>
+    client.post('/pm/requirements/parse-link', { url, prdText }, { params: { projectKey }, timeout: 150000 }),
+  parseDoc: (projectKey: string, file: File): Promise<ParsePreview> => {
+    const form = new FormData()
+    form.append('file', file)
+    return client.post('/pm/requirements/parse-doc', form, { params: { projectKey }, timeout: 150000 })
+  },
+  importConfirm: (projectKey: string, parseId: number, requirements: ParsedRequirement[]): Promise<ImportConfirmResult> =>
+    client.post('/pm/requirements/import-confirm', { parseId, requirements }, { params: { projectKey }, timeout: 60000 })
 }

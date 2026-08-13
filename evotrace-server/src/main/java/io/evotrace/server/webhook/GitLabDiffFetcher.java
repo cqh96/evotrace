@@ -7,6 +7,7 @@ import io.evotrace.server.ingestion.BlobStoreService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
@@ -18,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Fetches per-file unified diffs from GitLab REST API and stores them as blobs
@@ -30,6 +32,7 @@ public class GitLabDiffFetcher {
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private final BlobStoreService blobStore;
+    private final JdbcTemplate jdbc;
     private final HttpClient httpClient;
 
     @Value("${evotrace.gitlab.token:}")
@@ -44,8 +47,9 @@ public class GitLabDiffFetcher {
     @Value("${evotrace.gitlab.max-diff-chars-per-file:200000}")
     private int maxDiffCharsPerFile;
 
-    public GitLabDiffFetcher(BlobStoreService blobStore) {
+    public GitLabDiffFetcher(BlobStoreService blobStore, JdbcTemplate jdbc) {
         this.blobStore = blobStore;
+        this.jdbc = jdbc;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .followRedirects(HttpClient.Redirect.NORMAL)
@@ -62,7 +66,17 @@ public class GitLabDiffFetcher {
         if (!fetchDiff) {
             return List.of();
         }
-        if (token == null || token.isBlank()) {
+        // 优先使用全局配置；未配置时回退到按项目连接（gitlab_connection 表）。
+        String effectiveToken = this.token;
+        String effectiveBase = this.baseUrlOverride;
+        if (effectiveToken == null || effectiveToken.isBlank()) {
+            Map<String, String> conn = connectionForWebUrl(webUrl);
+            if (conn != null) {
+                effectiveToken = conn.get("token");
+                effectiveBase = conn.get("baseUrl");
+            }
+        }
+        if (effectiveToken == null || effectiveToken.isBlank()) {
             log.warn("evotrace.gitlab.token not set — skip fetching commit diffs");
             return List.of();
         }
@@ -70,14 +84,14 @@ public class GitLabDiffFetcher {
             return List.of();
         }
 
-        String base = resolveBaseUrl(webUrl);
+        String base = resolveBaseUrl(webUrl, effectiveBase);
         if (base == null) {
             log.warn("cannot resolve GitLab base URL from webUrl={}", webUrl);
             return List.of();
         }
 
         try {
-            List<JsonNode> diffs = fetchAllDiffPages(base, String.valueOf(projectId), commitSha);
+            List<JsonNode> diffs = fetchAllDiffPages(base, String.valueOf(projectId), commitSha, effectiveToken);
             if (diffs.isEmpty()) {
                 return List.of();
             }
@@ -95,7 +109,7 @@ public class GitLabDiffFetcher {
         }
     }
 
-    private List<JsonNode> fetchAllDiffPages(String base, String projectId, String commitSha)
+    private List<JsonNode> fetchAllDiffPages(String base, String projectId, String commitSha, String token)
             throws Exception {
         List<JsonNode> all = new ArrayList<>();
         String encodedProject = URLEncoder.encode(projectId, StandardCharsets.UTF_8);
@@ -193,9 +207,9 @@ public class GitLabDiffFetcher {
         return new int[]{add, del};
     }
 
-    private String resolveBaseUrl(String webUrl) {
-        if (baseUrlOverride != null && !baseUrlOverride.isBlank()) {
-            return trimTrailingSlash(baseUrlOverride.trim());
+    private String resolveBaseUrl(String webUrl, String override) {
+        if (override != null && !override.isBlank()) {
+            return trimTrailingSlash(override.trim());
         }
         if (webUrl == null || webUrl.isBlank()) {
             return null;
@@ -214,6 +228,32 @@ public class GitLabDiffFetcher {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /** 按 webUrl 主机回退查找按项目连接，返回 token 与 baseUrl；缺失/歧义返回 null。 */
+    private Map<String, String> connectionForWebUrl(String webUrl) {
+        if (webUrl == null || webUrl.isBlank()) {
+            return null;
+        }
+        String host;
+        try {
+            host = URI.create(webUrl).getHost();
+        } catch (Exception e) {
+            return null;
+        }
+        if (host == null || host.isBlank()) {
+            return null;
+        }
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT base_url, token_enc FROM gitlab_connection WHERE base_url ILIKE ?",
+                "%" + host + "%");
+        if (rows.size() == 1) {
+            return Map.of(
+                    "token", String.valueOf(rows.get(0).get("token_enc")),
+                    "baseUrl", String.valueOf(rows.get(0).get("base_url")));
+        }
+        log.warn("gitlab connection lookup for host={} ambiguous or missing (rows={})", host, rows.size());
+        return null;
     }
 
     private static String trimTrailingSlash(String s) {

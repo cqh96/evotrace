@@ -2,6 +2,7 @@ package io.evotrace.server.gitlab;
 
 import io.evotrace.common.Result;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -44,6 +45,18 @@ public class GitLabController {
         return Result.ok(null);
     }
 
+    /** 查询当前连接配置（令牌脱敏）。 */
+    @GetMapping("/connect")
+    public Result<Map<String, Object>> connectInfo(@PathVariable String projectKey) {
+        return Result.ok(gitLabService.getConnect(projectId(projectKey)));
+    }
+
+    /** 清除连接配置。 */
+    @DeleteMapping("/connect")
+    public Result<Void> disconnect(@PathVariable String projectKey) {
+        gitLabService.disconnect(projectId(projectKey));
+        return Result.ok(null);
+    }
     /** 导入仓库（clone + 历史回填）。 */
     @PostMapping("/repos/import")
     public Result<Map<String, Object>> importRepo(@PathVariable String projectKey,

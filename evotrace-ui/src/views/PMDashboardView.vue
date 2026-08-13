@@ -2,10 +2,11 @@
 import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { ElMessage } from 'element-plus'
-import { Tickets, CircleCheckFilled, Odometer, Warning, Plus, Refresh } from '@element-plus/icons-vue'
+import { Tickets, CircleCheckFilled, Odometer, Warning, Plus, Refresh, MagicStick } from '@element-plus/icons-vue'
 import StatCard from '../components/StatCard.vue'
 import LifecycleView from '../components/pm/LifecycleView.vue'
 import RequirementDetailDrawer from '../components/pm/RequirementDetailDrawer.vue'
+import RequirementImportDialog from '../components/pm/RequirementImportDialog.vue'
 import { modelConfigApi, pmApi, type Requirement, type RequirementInput } from '../api'
 import { useProjectStore } from '../stores/project'
 
@@ -44,6 +45,9 @@ const reqStats = ref<any[]>([])
 // Detail drawer
 const drawerVisible = ref(false)
 const selectedReq = ref<Requirement | null>(null)
+
+// 智能导入
+const importDialog = ref<InstanceType<typeof RequirementImportDialog> | null>(null)
 
 // AI availability
 const aiUsable = ref(false)
@@ -345,6 +349,9 @@ function compColor(req: Requirement): string {
       :ai-usable="aiUsable"
       @refreshed="loadAll"
     />
+
+    <!-- 智能导入 -->
+    <RequirementImportDialog ref="importDialog" :project-key="project" @imported="loadAll" />
   </div>
 </template>
 

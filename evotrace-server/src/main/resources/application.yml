@@ -1,6 +1,10 @@
 spring:
   application:
     name: evotrace-server
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 25MB
   threads:
     virtual:
       enabled: true
@@ -61,6 +65,11 @@ evotrace:
   code-review:
     auto-enabled: false
     max-diff-chars: 12000
+  pm:
+    # 需求文档智能解析：链接抓取/文档解析的文本截断阈值
+    doc-parse:
+      max-chars: 200000
+      fetch-timeout-seconds: 30
   ai:
     privacy-default: STRUCTURE_ONLY   # FULL_CODE / STRUCTURE_ONLY / LOCAL_ONLY
     summary-model: ${AI_CHAT_MODEL:gpt-4o-mini}
