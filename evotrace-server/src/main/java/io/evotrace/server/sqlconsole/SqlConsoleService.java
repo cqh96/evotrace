@@ -229,6 +229,9 @@ public class SqlConsoleService {
                 String msg = e.getMessage();
                 if (msg != null && msg.contains("Auth fail")) {
                     msg += "。排查:数据库服务器 sshd 认证配置/密码是否正确/账号是否被 fail2ban 锁定";
+                } else if (msg != null && (msg.contains("Connection reset") || msg.contains("Connection refused"))) {
+                    msg += "。TCP 被重置/拒绝:在跳板机执行 nc -z " + dbHost + " " + numOfCfg(cfg, "dbSshPort", 22)
+                            + " 验证;数据库服务器上检查 fail2ban 是否封禁了跳板机 IP、防火墙/安全软件是否拦截 22 端口";
                 }
                 out.put("message", msg);
                 out.put("elapsedMs", System.currentTimeMillis() - t0);
@@ -467,7 +470,12 @@ public class SqlConsoleService {
                     hop2 = openSsh("127.0.0.1", l1, dbSshUser,
                             strOfCfg(cfg, "dbSshPassword"), strOfCfg(cfg, "dbSshKeyPath"));
                 } catch (Exception e) {
-                    throw new ConnectPhaseException("第二跳 SSH 认证失败(数据库机 " + dbSshUser + ")", e.getMessage());
+                    String detail = e.getMessage();
+                    if (detail != null && (detail.contains("Connection reset") || detail.contains("Connection refused"))) {
+                        detail += "(数据库机防火墙/fail2ban 可能封禁了跳板机 IP,检查 nc -z "
+                                + strOfCfg(cfg, "dbHost") + " " + numOfCfg(cfg, "dbSshPort", 22) + ")";
+                    }
+                    throw new ConnectPhaseException("第二跳 SSH 连接失败(数据库机 " + dbSshUser + ")", detail);
                 }
                 int l2;
                 try {
