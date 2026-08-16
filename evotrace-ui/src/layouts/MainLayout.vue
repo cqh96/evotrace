@@ -135,7 +135,8 @@ const navGroups: { title: string; items: NavItem[] }[] = [
       { path: '/bugs', icon: Warning, label: '缺陷管理', desc: '状态流转与追溯', roles: ['ADMIN', 'PM', 'QA'] },
       { path: '/automation', icon: MagicStick, label: '自动化规则', desc: '事件触发引擎', roles: ['ADMIN', 'PM', 'OPS'] },
       { path: '/feedback', icon: ChatDotRound, label: '反馈管理', desc: 'AI 转需求缺陷', roles: ['ADMIN', 'PM'] },
-      { path: '/members', icon: Lightning, label: '项目成员', desc: '角色权限管理', roles: ['ADMIN', 'PM'] }
+      { path: '/members', icon: Lightning, label: '项目成员', desc: '角色权限管理', roles: ['ADMIN', 'PM'] },
+      { path: '/sql-console', icon: Monitor, label: 'SQL 终端', desc: 'SSH 跳板内网数据库', roles: ['ADMIN', 'OPS'] }
     ]
   }
 ]

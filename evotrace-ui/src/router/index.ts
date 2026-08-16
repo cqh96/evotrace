@@ -36,7 +36,8 @@ const router = createRouter({
         { path: 'feedback', name: 'feedback', component: () => import('../views/FeedbackView.vue'), meta: { title: '反馈管理' } },
         { path: 'members', name: 'members', component: () => import('../views/MemberView.vue'), meta: { title: '项目成员' } },
         { path: 'plugin-market', name: 'plugin-market', component: () => import('../views/PluginMarketView.vue'), meta: { title: '解析器插件市场' } },
-        { path: 'gitlab-repos', name: 'gitlab-repos', component: () => import('../views/GitlabReposView.vue'), meta: { title: 'GitLab 仓库' } }
+        { path: 'gitlab-repos', name: 'gitlab-repos', component: () => import('../views/GitlabReposView.vue'), meta: { title: 'GitLab 仓库' } },
+        { path: 'sql-console', name: 'sql-console', component: () => import('../views/SqlConsoleView.vue'), meta: { title: 'SQL 终端' } }
       ]
     }
   ]

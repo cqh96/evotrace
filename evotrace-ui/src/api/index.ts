@@ -1165,6 +1165,48 @@ export const pluginApi = {
     client.post('/plugins/publish', form, { headers: { 'Content-Type': 'multipart/form-data' } })
 }
 
+// ========== SQL 终端 ==========
+
+export interface SqlConsoleConnection {
+  id: number
+  name: string
+  sshHost: string
+  sshPort: number
+  sshUser: string
+  hasSshPassword?: boolean
+  hasSshKey?: boolean
+  dbType: 'postgres' | 'mysql'
+  dbHost: string
+  dbPort: number
+  dbName: string
+  dbUser: string
+  hasDbPassword?: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SqlExecuteResult {
+  sql: string
+  columns?: string[]
+  rows?: unknown[][]
+  rowCount?: number
+  truncated?: boolean
+  affectedRows?: number
+  elapsedMs?: number
+  error?: string
+}
+
+export const sqlConsoleApi = {
+  connections: (): Promise<SqlConsoleConnection[]> => client.get('/sql-console/connections'),
+  create: (data: Record<string, unknown>): Promise<{ id: number }> => client.post('/sql-console/connections', data),
+  update: (id: number, data: Record<string, unknown>): Promise<void> => client.put(`/sql-console/connections/${id}`, data),
+  remove: (id: number): Promise<void> => client.delete(`/sql-console/connections/${id}`),
+  test: (id: number): Promise<{ ok: boolean; message: string; elapsedMs: number }> =>
+    client.post(`/sql-console/connections/${id}/test`, null),
+  execute: (id: number, sql: string): Promise<SqlExecuteResult[]> =>
+    client.post(`/sql-console/connections/${id}/execute`, { sql }, { timeout: 120000 })
+}
+
 // ========== GitLab 仓库集成（V2.5） ==========
 
 export interface GitlabRepo {
