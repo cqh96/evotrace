@@ -113,7 +113,7 @@ watch(
   margin-top: 6px; font-size: 13px; color: var(--et-text-secondary); line-height: 1.55;
 }
 .ai-badge {
-  display: inline-block; background: linear-gradient(135deg, #f59e0b, #e94d0b);
+  display: inline-block; background: #b45309;
   color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-right: 6px;
 }
 .fh-actions { margin-top: 8px }
@@ -131,6 +131,6 @@ watch(
   white-space: pre-wrap;
   word-break: break-word;
 }
-.add { color: #10b981 }
-.del { color: #ef4444 }
+.add { color: #047857 }
+.del { color: #dc2626 }
 </style>

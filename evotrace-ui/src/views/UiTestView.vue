@@ -370,7 +370,7 @@ onMounted(async () => {
 .step-index {
   width: 22px; height: 22px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-c));
+  background: var(--et-primary);
   color: #fff; font-size: 12px; font-weight: 700; flex-shrink: 0;
 }
 .step-type-tag { flex-shrink: 0; }
@@ -380,7 +380,7 @@ onMounted(async () => {
 .step-ops { display: flex; gap: 4px; flex-shrink: 0; }
 .edit-actions { display: flex; gap: 10px; }
 .ops-btn { font-weight: 600; border-radius: 8px; background: color-mix(in srgb, currentColor 12%, transparent); }
-.ops-btn:hover { background: color-mix(in srgb, currentColor 22%, transparent); box-shadow: 0 0 12px var(--et-glow); }
+.ops-btn:hover { background: color-mix(in srgb, currentColor 22%, transparent); }
 
 /* 状态胶囊 */
 .status-pill {
@@ -389,10 +389,10 @@ onMounted(async () => {
 }
 .status-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .st-pending { color: var(--et-text-muted); background: var(--et-bg-muted); }
-.st-running { color: var(--et-grad-c); background: rgba(56, 225, 255, 0.12); }
-.st-passed { color: var(--et-ok); background: rgba(52, 211, 153, 0.12); }
-.st-failed { color: var(--et-danger); background: rgba(251, 113, 133, 0.12); }
-.st-skipped { color: var(--et-warn); background: rgba(251, 191, 36, 0.12); }
+.st-running { color: #0891b2; background: rgba(8, 145, 178, 0.12); }
+.st-passed { color: var(--et-ok); background: rgba(5, 150, 105, 0.12); }
+.st-failed { color: var(--et-danger); background: rgba(220, 38, 38, 0.12); }
+.st-skipped { color: var(--et-warn); background: rgba(180, 83, 9, 0.12); }
 
 /* 运行结果 */
 .run-result {
@@ -415,9 +415,9 @@ onMounted(async () => {
 .result-step { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-radius: 8px; background: var(--et-card-solid); }
 .step-summary { display: flex; align-items: center; gap: 10px; }
 .step-status { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px; }
-.ss-passed { color: var(--et-ok); background: rgba(52, 211, 153, 0.12); }
-.ss-failed { color: var(--et-danger); background: rgba(251, 113, 133, 0.12); }
-.ss-skipped { color: var(--et-warn); background: rgba(251, 191, 36, 0.12); }
+.ss-passed { color: var(--et-ok); background: rgba(5, 150, 105, 0.12); }
+.ss-failed { color: var(--et-danger); background: rgba(220, 38, 38, 0.12); }
+.ss-skipped { color: var(--et-warn); background: rgba(180, 83, 9, 0.12); }
 .step-info { font-size: 13px; }
 .step-detail { font-size: 12px; color: var(--et-text-secondary); }
 .step-error { font-size: 12.5px; color: var(--et-danger); }

@@ -20,16 +20,15 @@ const props = withDefaults(defineProps<{
   deltaDir: 'up'
 })
 
-const gradientStyle = computed(() => ({
-  background: `linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #a78bfa))`,
-  boxShadow: `0 6px 16px color-mix(in srgb, var(--accent) 35%, transparent)`
+const iconStyle = computed(() => ({
+  background: `var(--accent)`
 }))
 </script>
 
 <template>
   <div class="et-card stat-card" :style="{ '--accent': props.color ?? 'var(--et-primary)' }">
     <div class="stat-head">
-      <span class="et-g-ic" :style="gradientStyle">
+      <span class="et-g-ic" :style="iconStyle">
         <el-icon :size="17" v-if="props.icon"><component :is="props.icon" /></el-icon>
         <span v-else class="stat-char">{{ props.label.charAt(0) }}</span>
       </span>
@@ -58,19 +57,6 @@ const gradientStyle = computed(() => ({
   position: relative;
   padding: 18px 20px 16px;
   overflow: hidden;
-}
-.stat-card::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 18px;
-  right: 18px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
-  pointer-events: none;
-}
-[data-theme="light"] .stat-card::after {
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
 }
 .stat-card:hover {
   transform: translateY(-4px);

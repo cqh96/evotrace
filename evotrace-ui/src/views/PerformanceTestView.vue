@@ -11,6 +11,7 @@
       </div>
       <div class="hero-actions">
         <el-button size="small" class="ops-btn primary" :icon="Plus" @click="openCreate">新建压测任务</el-button>
+        <button class="ops-btn" @click="load"><el-icon><Refresh /></el-icon> 刷新</button>
       </div>
     </div>
 
@@ -183,7 +184,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Delete, VideoPlay, Stopwatch } from '@element-plus/icons-vue'
+import { Plus, Refresh, Delete, VideoPlay, Stopwatch } from '@element-plus/icons-vue'
 import { useProjectStore } from '../stores/project'
 import { perfApi, apiDebugApi, type PerfTest, type ApiEndpoint } from '../api'
 
@@ -235,7 +236,7 @@ const successRate = computed(() => {
 const successColor = computed(() => (successRate.value >= 90 ? 'var(--et-ok)' : successRate.value >= 70 ? 'var(--et-warn)' : 'var(--et-danger)'))
 const successGradient = computed(() => {
   const c = successRate.value >= 90 ? 'var(--et-ok)' : successRate.value >= 70 ? 'var(--et-warn)' : 'var(--et-danger)'
-  return `linear-gradient(90deg, ${c}, ${c})`
+  return `${c}`
 })
 
 async function load() {
@@ -269,7 +270,8 @@ async function createTask() {
       endpointId: form.value.endpointId,
       name: form.value.name.trim(),
       concurrency: form.value.concurrency,
-      durationSec: form.value.durationSec
+      durationSec: form.value.durationSec,
+      baseUrl: form.value.baseUrl.trim() || undefined
     })
     ElMessage.success('压测任务创建成功')
     createOpen.value = false
@@ -343,7 +345,7 @@ function statusClass(status?: string): string {
 }
 
 function methodColor(m?: string): string {
-  const c: Record<string, string> = { GET: '#34d399', POST: '#a5b0ff', PUT: '#fbbf24', DELETE: '#fb7185', PATCH: '#f472b6' }
+  const c: Record<string, string> = { GET: '#059669', POST: '#5f6bd8', PUT: '#b45309', DELETE: '#dc2626', PATCH: '#d6336c' }
   return c[(m ?? '').toUpperCase()] ?? '#93a0bd'
 }
 
@@ -437,10 +439,10 @@ onMounted(() => { if (projectKey.value) load() })
   border-radius: 50%;
   background: currentColor;
 }
-.status-pill.ok { color: var(--et-ok); background: rgba(52, 211, 153, 0.12); }
-.status-pill.bad { color: var(--et-danger); background: rgba(251, 113, 133, 0.12); }
-.status-pill.warn { color: var(--et-warn); background: rgba(251, 191, 36, 0.13); }
-.status-pill.info { color: var(--et-grad-c); background: rgba(56, 225, 255, 0.12); }
+.status-pill.ok { color: var(--et-ok); background: rgba(5, 150, 105, 0.12); }
+.status-pill.bad { color: var(--et-danger); background: rgba(220, 38, 38, 0.12); }
+.status-pill.warn { color: var(--et-warn); background: rgba(180, 83, 9, 0.13); }
+.status-pill.info { color: #0891b2; background: rgba(8, 145, 178, 0.12); }
 
 /* 半透明胶囊按钮 */
 .ops-btn {
@@ -450,11 +452,10 @@ onMounted(() => { if (projectKey.value) load() })
 }
 .ops-btn:hover {
   background: color-mix(in srgb, currentColor 22%, transparent);
-  box-shadow: 0 0 12px var(--et-glow);
 }
-.ops-btn.primary { color: #a8b4ff; }
-.ops-btn.success { color: #34d399; }
-.ops-btn.danger { color: #fb7185; }
+.ops-btn.primary { color: #5f6bd8; }
+.ops-btn.success { color: #059669; }
+.ops-btn.danger { color: #dc2626; }
 
 /* 新建表单 */
 .form-row {
@@ -530,10 +531,7 @@ onMounted(() => { if (projectKey.value) load() })
   margin-left: 2px;
 }
 .metric-num.grad {
-  background: linear-gradient(90deg, var(--et-grad-a), var(--et-grad-c));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--et-text);
 }
 .metric-num.ok { color: var(--et-ok); }
 .metric-num.warn { color: var(--et-warn); }

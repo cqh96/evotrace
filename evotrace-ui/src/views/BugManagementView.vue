@@ -19,10 +19,10 @@ const statusLabels: Record<string, string> = {
   OPEN: '打开', IN_PROGRESS: '处理中', FIXED: '已修复', REOPENED: '重新打开', VERIFIED: '已验收', CLOSED: '已关闭'
 }
 const statusColors: Record<string, string> = {
-  OPEN: '#fb7185', IN_PROGRESS: '#fbbf24', FIXED: '#38e1ff', REOPENED: '#fb7185', VERIFIED: '#a78bfa', CLOSED: '#34d399'
+  OPEN: '#dc2626', IN_PROGRESS: '#b45309', FIXED: '#0891b2', REOPENED: '#dc2626', VERIFIED: '#6d4fd6', CLOSED: '#059669'
 }
 const sevLabels: Record<string, string> = { P0: '致命', P1: '严重', P2: '一般', P3: '轻微' }
-const sevColors: Record<string, string> = { P0: '#dc2626', P1: '#f97316', P2: '#eab308', P3: '#64748b' }
+const sevColors: Record<string, string> = { P0: '#dc2626', P1: '#c2410c', P2: '#b45309', P3: '#64748b' }
 
 const kanbanColumns = ['OPEN', 'IN_PROGRESS', 'FIXED', 'VERIFIED', 'CLOSED']
 
@@ -126,13 +126,13 @@ const sevFilters = ['P0', 'P1', 'P2', 'P3']
         <el-table :data="bugs" v-loading="loading" size="default" style="width: 100%">
           <el-table-column label="严重度" width="90">
             <template #default="{ row }">
-              <span class="sev-dot" :style="{ background: sevColors[row.severity] || '#6d7cff' }">{{ row.severity }}</span>
+              <span class="sev-dot" :style="{ background: sevColors[row.severity] || '#4f5ad1' }">{{ row.severity }}</span>
             </template>
           </el-table-column>
           <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
           <el-table-column label="状态" width="110">
             <template #default="{ row }">
-              <span class="status-pill" :style="{ color: statusColors[row.status], background: `color-mix(in srgb, ${statusColors[row.status] || '#6d7cff'} 14%, transparent)` }">
+              <span class="status-pill" :style="{ color: statusColors[row.status], background: `color-mix(in srgb, ${statusColors[row.status] || '#4f5ad1'} 14%, transparent)` }">
                 {{ statusLabels[row.status] || row.status }}
               </span>
             </template>
@@ -174,7 +174,7 @@ const sevFilters = ['P0', 'P1', 'P2', 'P3']
         <div class="col-body">
           <div v-for="bug in kanbanBy(col)" :key="bug.id" class="kb-card" @click="openDetail(bug)">
             <div class="kb-top">
-              <span class="sev-dot" :style="{ background: sevColors[bug.severity] || '#6d7cff' }">{{ bug.severity }}</span>
+              <span class="sev-dot" :style="{ background: sevColors[bug.severity] || '#4f5ad1' }">{{ bug.severity }}</span>
               <span class="kb-id">#{{ bug.id }}</span>
             </div>
             <div class="kb-title">{{ bug.title }}</div>
@@ -216,8 +216,8 @@ const sevFilters = ['P0', 'P1', 'P2', 'P3']
           <div class="d-head">
             <h3>{{ detail.title }}</h3>
             <div class="d-meta">
-              <span class="sev-dot" :style="{ background: sevColors[detail.severity] || '#6d7cff' }">{{ detail.severity }}</span>
-              <span class="status-pill" :style="{ color: statusColors[detail.status], background: `color-mix(in srgb, ${statusColors[detail.status] || '#6d7cff'} 14%, transparent)` }">
+              <span class="sev-dot" :style="{ background: sevColors[detail.severity] || '#4f5ad1' }">{{ detail.severity }}</span>
+              <span class="status-pill" :style="{ color: statusColors[detail.status], background: `color-mix(in srgb, ${statusColors[detail.status] || '#4f5ad1'} 14%, transparent)` }">
                 {{ statusLabels[detail.status] || detail.status }}
               </span>
             </div>
@@ -269,17 +269,17 @@ const sevFilters = ['P0', 'P1', 'P2', 'P3']
   color: var(--et-text-muted); font-family: inherit; font-size: 13px; font-weight: 600;
   transition: all 0.18s;
 }
-.seg button.on { background: rgba(109, 124, 255, 0.16); color: #a8b4ff; }
+.seg button.on { background: rgba(79, 90, 209, 0.16); color: #5f6bd8; }
 
 .ops-btn {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 8px 14px; border-radius: 20px; border: 1px solid transparent;
   font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.18s;
 }
-.ops-btn.primary { background: rgba(109, 124, 255, 0.14); color: #a8b4ff; }
-.ops-btn.primary:hover { background: rgba(109, 124, 255, 0.28); box-shadow: 0 0 12px rgba(109, 124, 255, 0.3); }
-.ops-btn.success { background: rgba(52, 211, 153, 0.14); color: #34d399; }
-.ops-btn.success:hover { background: rgba(52, 211, 153, 0.28); box-shadow: 0 0 12px rgba(52, 211, 153, 0.3); }
+.ops-btn.primary { background: rgba(79, 90, 209, 0.14); color: #5f6bd8; }
+.ops-btn.primary:hover { background: rgba(79, 90, 209, 0.28); }
+.ops-btn.success { background: rgba(5, 150, 105, 0.14); color: #059669; }
+.ops-btn.success:hover { background: rgba(5, 150, 105, 0.28); }
 .ops-btn.mini { padding: 4px 9px; font-size: 11.5px; }
 
 .sev-dot {
@@ -338,8 +338,8 @@ const sevFilters = ['P0', 'P1', 'P2', 'P3']
 .mono { font-family: ui-monospace, monospace; font-size: 12px; }
 .muted { color: var(--et-text-muted); }
 .mini-tag { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 6px; }
-.mini-tag.ok { color: #34d399; background: rgba(52, 211, 153, 0.14); }
-.mini-tag.warn { color: #fbbf24; background: rgba(251, 191, 36, 0.14); }
+.mini-tag.ok { color: #059669; background: rgba(5, 150, 105, 0.14); }
+.mini-tag.warn { color: #b45309; background: rgba(180, 83, 9, 0.14); }
 .d-empty { color: var(--et-text-muted); font-size: 12.5px; padding: 8px 0; }
 
 @media (max-width: 1100px) {

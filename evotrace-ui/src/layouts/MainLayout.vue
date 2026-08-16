@@ -29,8 +29,8 @@ function isGroupCollapsed(title: string) {
   return collapsed.value || collapsedGroups.value.has(title)
 }
 
-/* ---------- 主题（默认深色） ---------- */
-const isDark = ref(localStorage.getItem('evotrace_theme') !== 'light')
+/* ---------- 主题（默认浅色护眼） ---------- */
+const isDark = ref(localStorage.getItem('evotrace_theme') === 'dark')
 function toggleTheme() {
   isDark.value = !isDark.value
   document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light')
@@ -222,14 +222,6 @@ window.addEventListener('keydown', onPaletteKey)
 </script>
 
 <template>
-  <!-- 氛围背景 -->
-  <div class="et-aurora" aria-hidden="true">
-    <div class="et-orb et-orb-1"></div>
-    <div class="et-orb et-orb-2"></div>
-    <div class="et-orb et-orb-3"></div>
-    <div class="et-grid-overlay"></div>
-  </div>
-
   <div class="layout">
     <!-- ======== 侧边栏 ======== -->
     <aside class="sidebar" :class="{ collapsed }">
@@ -407,8 +399,6 @@ window.addEventListener('keydown', onPaletteKey)
   padding: 18px 14px;
   background: var(--et-sidebar-bg);
   border-right: 1px solid var(--et-border);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.4s;
   overflow: hidden;
   flex-shrink: 0;
@@ -427,12 +417,11 @@ window.addEventListener('keydown', onPaletteKey)
   height: 38px;
   border-radius: 12px;
   flex-shrink: 0;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b) 55%, var(--et-grad-c));
+  background: var(--et-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
-  box-shadow: 0 6px 18px var(--et-glow);
 }
 .brand-logo svg { width: 20px; height: 20px; }
 .brand-text { display: flex; flex-direction: column; gap: 1px; white-space: nowrap; }
@@ -470,8 +459,7 @@ window.addEventListener('keydown', onPaletteKey)
   height: 8px;
   border-radius: 50%;
   margin: 0 auto;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-c));
-  box-shadow: 0 0 6px var(--et-glow);
+  background: var(--et-primary);
   flex-shrink: 0;
 }
 .nav-group-body { overflow: hidden; }
@@ -502,18 +490,18 @@ window.addEventListener('keydown', onPaletteKey)
   bottom: 22%;
   width: 3px;
   border-radius: 3px;
-  background: linear-gradient(180deg, var(--et-grad-a), var(--et-grad-c));
+  background: var(--et-primary);
   opacity: 0;
   transition: opacity 0.2s;
 }
 .nav-item:hover { background: var(--et-sidebar-hover); color: var(--et-sidebar-text-active); }
 .nav-item.active {
-  background: linear-gradient(90deg, var(--et-sidebar-active), transparent);
+  background: var(--et-sidebar-active);
   color: var(--et-sidebar-text-active);
   font-weight: 600;
 }
 .nav-item.active::before { opacity: 1; }
-.nav-item.active .nav-ic { color: var(--et-grad-c); filter: drop-shadow(0 0 6px rgba(56, 225, 255, 0.5)); }
+.nav-item.active .nav-ic { color: var(--et-primary); }
 .nav-ic {
   display: flex;
   align-items: center;
@@ -523,15 +511,15 @@ window.addEventListener('keydown', onPaletteKey)
   flex-shrink: 0;
   transition: color 0.18s;
 }
-.nav-item:hover .nav-ic { color: var(--et-grad-a); }
+.nav-item:hover .nav-ic { color: var(--et-primary); }
 .nav-label { flex: 1; }
 .nav-badge {
   font-size: 10px;
   font-weight: 700;
   padding: 2px 7px;
   border-radius: 20px;
-  background: linear-gradient(135deg, var(--et-grad-b), var(--et-grad-c));
-  color: #0b0f1e;
+  background: var(--et-primary);
+  color: #fff;
   flex-shrink: 0;
 }
 
@@ -540,8 +528,8 @@ window.addEventListener('keydown', onPaletteKey)
   border-radius: 14px;
   padding: 12px;
   margin-bottom: 12px;
-  background: linear-gradient(135deg, rgba(52, 211, 153, 0.12), rgba(56, 225, 255, 0.06));
-  border: 1px solid rgba(52, 211, 153, 0.22);
+  background: rgba(5, 150, 105, 0.06);
+  border: 1px solid rgba(5, 150, 105, 0.16);
   white-space: nowrap;
   overflow: hidden;
 }
@@ -590,8 +578,6 @@ window.addEventListener('keydown', onPaletteKey)
   flex-shrink: 0;
   background: var(--et-sidebar-bg);
   border-bottom: 1px solid var(--et-border);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
 }
 .crumb {
   display: flex;
@@ -654,8 +640,7 @@ kbd {
 .icon-btn:hover {
   color: var(--et-text);
   border-color: var(--et-hover-border);
-  box-shadow: 0 4px 14px rgba(2, 6, 23, 0.25);
-  transform: translateY(-1px);
+  box-shadow: var(--et-shadow-sm);
 }
 .icon-btn .dot {
   position: absolute;
@@ -689,7 +674,7 @@ kbd {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b) 60%, var(--et-grad-c));
+  background: var(--et-primary);
   color: #fff;
   font-size: 13.5px;
   font-weight: 700;
@@ -720,9 +705,7 @@ kbd {
   position: fixed;
   inset: 0;
   z-index: 2000;
-  background: rgba(4, 8, 18, 0.55);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(4, 8, 18, 0.45);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s;
@@ -799,13 +782,12 @@ kbd {
 .p-item .desc { font-size: 11.5px; color: var(--et-text-muted); }
 .p-item .kb { font-size: 10.5px; color: var(--et-text-muted); border: 1px solid var(--et-border); padding: 1px 6px; border-radius: 5px; }
 .p-item.sel {
-  background: linear-gradient(90deg, rgba(109, 124, 255, 0.18), rgba(109, 124, 255, 0.06));
+  background: var(--et-primary-bg);
   color: var(--et-text);
 }
 .p-item.sel .p-ic {
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b));
+  background: var(--et-primary);
   color: #fff;
-  box-shadow: 0 4px 12px var(--et-glow);
 }
 .p-empty { padding: 26px; text-align: center; color: var(--et-text-muted); font-size: 13px; }
 

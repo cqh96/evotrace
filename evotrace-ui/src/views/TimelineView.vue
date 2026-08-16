@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, computed, watch } from 'vue'
-import { Clock } from '@element-plus/icons-vue'
+import { Clock, Refresh } from '@element-plus/icons-vue'
 import { storeToRefs } from 'pinia'
 import FilterBar from '../components/FilterBar.vue'
 import FileHistoryDrawer from '../components/FileHistoryDrawer.vue'
@@ -28,14 +28,14 @@ const fileDrawer = ref(false)
 const filePath = ref('')
 
 const typeMeta: Record<string, { label: string; color: string; icon: string }> = {
-  RELEASE_TAG:    { label: '版本发布', color: '#f59e0b', icon: '🚀' },
-  MR_MERGED:      { label: 'MR 合并',  color: '#10b981', icon: '🔀' },
-  CODE_COMMIT:     { label: '代码提交', color: '#6366f1', icon: '💻' },
+  RELEASE_TAG:    { label: '版本发布', color: '#b45309', icon: '🚀' },
+  MR_MERGED:      { label: 'MR 合并',  color: '#047857', icon: '🔀' },
+  CODE_COMMIT:     { label: '代码提交', color: '#4f5ad1', icon: '💻' },
   CONFIG_CHANGE:  { label: '配置变更', color: '#64748b', icon: '⚙️' },
-  DDL_CHANGE:     { label: 'DDL 变更', color: '#ef4444', icon: '🗄️' },
-  DEPLOY_RECORD:  { label: '部署记录', color: '#8b5cf6', icon: '📦' },
-  INVENTORY_REPORT:{ label: '清单上报', color: '#06b6d4', icon: '📋' },
-  ITERATION_SYNC: { label: '迭代同步', color: '#f472b6', icon: '📌' }
+  DDL_CHANGE:     { label: 'DDL 变更', color: '#dc2626', icon: '🗄️' },
+  DEPLOY_RECORD:  { label: '部署记录', color: '#6d4fd6', icon: '📦' },
+  INVENTORY_REPORT:{ label: '清单上报', color: '#0891b2', icon: '📋' },
+  ITERATION_SYNC: { label: '迭代同步', color: '#d6336c', icon: '📌' }
 }
 
 // Group events by date
@@ -104,19 +104,19 @@ const tagClassMap: Record<string, string> = {
 }
 const tagClass = (t: string) => tagClassMap[t] ?? 'et-tag-info'
 
-// 时间线圆点颜色 / 光晕（随事件类型）
+// 时间线圆点颜色（随事件类型）
 const dotColorMap: Record<string, string> = {
-  RELEASE_TAG: '#38e1ff', MR_MERGED: '#34d399', CODE_COMMIT: '#a5b0ff',
-  CONFIG_CHANGE: '#fbbf24', DDL_CHANGE: '#fb7185', DEPLOY_RECORD: '#38e1ff',
-  INVENTORY_REPORT: '#0ea5e9', ITERATION_SYNC: '#a78bfa'
+  RELEASE_TAG: '#0891b2', MR_MERGED: '#059669', CODE_COMMIT: '#5f6bd8',
+  CONFIG_CHANGE: '#b45309', DDL_CHANGE: '#dc2626', DEPLOY_RECORD: '#0891b2',
+  INVENTORY_REPORT: '#0284c7', ITERATION_SYNC: '#6d4fd6'
 }
 const dotGlowMap: Record<string, string> = {
-  RELEASE_TAG: 'rgba(56,225,255,.5)', MR_MERGED: 'rgba(52,211,153,.5)', CODE_COMMIT: 'rgba(165,176,255,.5)',
-  CONFIG_CHANGE: 'rgba(251,191,36,.45)', DDL_CHANGE: 'rgba(251,113,133,.45)', DEPLOY_RECORD: 'rgba(56,225,255,.5)',
-  INVENTORY_REPORT: 'rgba(14,165,233,.45)', ITERATION_SYNC: 'rgba(167,139,250,.5)'
+  RELEASE_TAG: 'rgba(8,145,178,.5)', MR_MERGED: 'rgba(5,150,105,.5)', CODE_COMMIT: 'rgba(95,107,216,.5)',
+  CONFIG_CHANGE: 'rgba(180,83,9,.45)', DDL_CHANGE: 'rgba(220,38,38,.45)', DEPLOY_RECORD: 'rgba(8,145,178,.5)',
+  INVENTORY_REPORT: 'rgba(2,132,199,.45)', ITERATION_SYNC: 'rgba(109,79,214,.5)'
 }
-const dotColor = (t: string) => dotColorMap[t] ?? '#6d7cff'
-const dotGlow = (t: string) => dotGlowMap[t] ?? 'rgba(109,124,255,.5)'
+const dotColor = (t: string) => dotColorMap[t] ?? '#4f5ad1'
+const dotGlow = (t: string) => dotGlowMap[t] ?? 'rgba(79,90,209,.5)'
 
 // 事件标题（类型 + 应用上下文）
 const titleOf = (e: TimelineEvent) => {
@@ -155,7 +155,7 @@ const iterationCount = computed(() => new Set(events.value.filter((e) => e.itera
     <!-- ======== 概览 Hero ======== -->
     <section class="et-hero rise" style="--d:.02s">
       <div class="hero-left">
-        <h2>演化时间线 <span class="et-grad-text">Timeline</span></h2>
+        <h2>演化时间线 <span>Timeline</span></h2>
         <p class="et-hero-sub">全链路变更历史 · 发布、合并、提交、配置与部署事件自动归集</p>
       </div>
 
@@ -180,6 +180,10 @@ const iterationCount = computed(() => new Set(events.value.filter((e) => e.itera
       <div v-else class="hero-stats static">
         <el-icon :size="14"><Clock /></el-icon>
         <span>选择项目后查看全链路演化动态</span>
+      </div>
+
+      <div class="hero-actions">
+        <el-button :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
       </div>
     </section>
 
@@ -309,9 +313,7 @@ const iterationCount = computed(() => new Set(events.value.filter((e) => e.itera
   color: var(--et-text);
 }
 .h-chip .h-grad {
-  background: linear-gradient(90deg, var(--et-grad-a), var(--et-grad-b), var(--et-grad-c));
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--et-primary);
 }
 .hero-stats.static {
   padding: 9px 16px;
@@ -321,6 +323,7 @@ const iterationCount = computed(() => new Set(events.value.filter((e) => e.itera
   font-size: 12.5px; color: var(--et-text-muted);
   display: inline-flex; align-items: center; gap: 7px;
 }
+.hero-actions { margin-top: 14px; }
 @media (max-width: 980px) {
   .hero-stats { margin-left: 0; margin-top: 16px; }
 }
@@ -338,8 +341,7 @@ const iterationCount = computed(() => new Set(events.value.filter((e) => e.itera
 }
 .dh-dot {
   width: 7px; height: 7px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-c));
-  box-shadow: 0 0 9px var(--et-glow);
+  background: var(--et-primary);
   flex-shrink: 0;
 }
 .date-count {
@@ -348,13 +350,13 @@ const iterationCount = computed(() => new Set(events.value.filter((e) => e.itera
   font-variant-numeric: tabular-nums;
 }
 
-/* 渐变竖轨 + 发光圆点（参考 mock-dashboard .tl） */
+/* 纯色竖轨 + 圆点（参考 mock-dashboard .tl） */
 .tl { position: relative; padding-left: 24px; }
 .tl::before {
   content: '';
   position: absolute; left: 8px; top: 10px; bottom: 10px; width: 2px;
   border-radius: 2px;
-  background: linear-gradient(180deg, var(--et-grad-a), var(--et-grad-b), var(--et-grad-c));
+  background: var(--et-primary);
   opacity: 0.45;
 }
 .tl-item { position: relative; padding: 11px 0 14px; }
@@ -365,7 +367,7 @@ const iterationCount = computed(() => new Set(events.value.filter((e) => e.itera
   width: 11px; height: 11px; border-radius: 50%;
   background: var(--et-card-solid);
   border: 2.5px solid var(--dot-color, var(--et-primary));
-  box-shadow: 0 0 12px var(--dot-glow, var(--et-glow));
+  box-shadow: var(--et-shadow-sm);
 }
 
 .tl-main { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
@@ -397,7 +399,7 @@ const iterationCount = computed(() => new Set(events.value.filter((e) => e.itera
 /* DDL 变更专属迷你标签 */
 .tl-item .et-tag-ddl {
   color: var(--et-danger);
-  background: rgba(251, 113, 133, 0.13);
+  background: rgba(220, 38, 38, 0.13);
 }
 
 /* AI 摘要 */
@@ -407,7 +409,7 @@ const iterationCount = computed(() => new Set(events.value.filter((e) => e.itera
   border-radius: 10px;
   background: var(--et-bg-muted);
   border: 1px solid var(--et-border);
-  border-left: 2px solid var(--et-grad-b);
+  border-left: 2px solid #6d4fd6;
   font-size: 12.5px; color: var(--et-text-secondary); line-height: 1.65;
 }
 .tl-sum.pending {
@@ -418,7 +420,7 @@ const iterationCount = computed(() => new Set(events.value.filter((e) => e.itera
 .ai-badge {
   display: inline-flex; align-items: center;
   margin-right: 6px;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b));
+  background: var(--et-primary);
   color: #fff; font-size: 10px; font-weight: 700;
   padding: 1.5px 7px; border-radius: 5px;
   vertical-align: 1px;

@@ -170,8 +170,6 @@ async function aiExpand() {
   background: var(--et-bg-muted);
   border: 1px solid var(--et-border);
   border-radius: 14px;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
 }
 .form-hint { font-size: 12px; color: var(--et-text-muted) }
 .unit { margin-left: 6px; color: var(--et-text-muted); font-size: 12px }

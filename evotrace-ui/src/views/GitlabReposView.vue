@@ -21,7 +21,7 @@ const statusLabels: Record<string, string> = {
   PENDING: '待导入', CLONING: '克隆中', SYNCED: '已同步', FAILED: '失败'
 }
 const statusColors: Record<string, string> = {
-  PENDING: '#94a3b8', CLONING: '#fbbf24', SYNCED: '#34d399', FAILED: '#fb7185'
+  PENDING: '#94a3b8', CLONING: '#b45309', SYNCED: '#059669', FAILED: '#dc2626'
 }
 
 async function load() {
@@ -281,10 +281,10 @@ onMounted(load)
   padding: 8px 14px; border-radius: 20px; border: 1px solid transparent;
   font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.18s;
 }
-.ops-btn.primary { background: rgba(109, 124, 255, 0.14); color: #a8b4ff; }
-.ops-btn.primary:hover { background: rgba(109, 124, 255, 0.28); box-shadow: 0 0 12px rgba(109, 124, 255, 0.3); }
-.ops-btn.danger { background: rgba(251, 113, 133, 0.14); color: #fb7185; }
-.ops-btn.danger:hover { background: rgba(251, 113, 133, 0.28); box-shadow: 0 0 12px rgba(251, 113, 133, 0.3); }
+.ops-btn.primary { background: var(--et-primary-bg); color: #5f6bd8; }
+.ops-btn.primary:hover { background: rgba(79, 90, 209, 0.18); }
+.ops-btn.danger { background: rgba(220, 38, 38, 0.12); color: #dc2626; }
+.ops-btn.danger:hover { background: rgba(220, 38, 38, 0.2); }
 .ops { display: flex; gap: 6px; }
 
 /* 连接状态卡片 */
@@ -293,13 +293,13 @@ onMounted(load)
 .conn-icon {
   width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center; font-size: 18px;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b)); color: #fff;
+  background: var(--et-primary); color: #fff;
 }
 .conn-meta { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .conn-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .conn-label { font-size: 11px; color: var(--et-text-muted); font-weight: 600; letter-spacing: 0.5px; }
 .conn-val { font-family: ui-monospace, monospace; font-size: 13px; font-weight: 600; }
-.conn-token { font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--et-grad-c); }
+.conn-token { font-family: ui-monospace, monospace; font-size: 11.5px; color: #0e7490; }
 .conn-ns { font-size: 12px; color: var(--et-text-secondary); }
 .conn-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .et-card-head {
@@ -311,16 +311,16 @@ onMounted(load)
 .r-avatar {
   width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b));
+  background: var(--et-primary);
   color: #fff;
 }
 .path { font-family: ui-monospace, monospace; font-size: 13px; font-weight: 600; }
 .branch { font-family: ui-monospace, monospace; font-size: 12px; color: var(--et-text-secondary); }
 .status { font-size: 11.5px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
-.sync-sha { font-family: ui-monospace, monospace; font-size: 12px; color: var(--et-grad-c); }
+.sync-sha { font-family: ui-monospace, monospace; font-size: 12px; color: #0e7490; }
 .err { font-size: 12px; color: var(--et-danger); }
 .muted { color: var(--et-text-muted); }
 .sync-type { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
-.sync-type.full { color: #a8b4ff; background: rgba(109, 124, 255, 0.14); }
-.sync-type.incremental { color: #38e1ff; background: rgba(56, 225, 255, 0.12); }
+.sync-type.full { color: #5f6bd8; background: var(--et-primary-bg); }
+.sync-type.incremental { color: #0891b2; background: rgba(8, 145, 178, 0.12); }
 </style>

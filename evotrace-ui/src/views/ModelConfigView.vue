@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Connection, Delete, MagicStick, Star } from '@element-plus/icons-vue'
+import { Plus, Connection, Delete, MagicStick, Refresh, Star } from '@element-plus/icons-vue'
 import StatCard from '../components/StatCard.vue'
 import { modelConfigApi, type ModelConfig, type ModelStatus } from '../api'
 
@@ -152,7 +152,7 @@ onMounted(load)
     <!-- 页面 Hero -->
     <section class="et-hero hero rise" style="--d:.02s">
       <div class="hero-left">
-        <h2><span class="et-grad-text">AI 模型配置</span></h2>
+        <h2>AI 模型配置</h2>
         <div class="et-hero-sub">统一接入 OpenAI 兼容端点，管理密钥、默认模型与 AI 任务路由</div>
         <div class="hero-chips" v-if="status">
           <div class="chip-mini">
@@ -165,6 +165,9 @@ onMounted(load)
       <div class="hero-right">
         <div class="chip-mini">模型总数 <b>{{ models.length }}</b></div>
         <div class="chip-mini">已启用 <b>{{ enabledCount }}</b> / 已配密钥 <b>{{ keyedCount }}</b></div>
+        <div class="hero-actions">
+          <el-button :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
+        </div>
       </div>
     </section>
 
@@ -187,10 +190,10 @@ onMounted(load)
 
     <!-- 统计 -->
     <el-row :gutter="16" class="stats-row">
-      <el-col :xs="12" :sm="6"><StatCard label="模型总数" :value="models.length" :icon="Connection" color="#6d7cff" class="rise" style="--d:.10s" /></el-col>
-      <el-col :xs="12" :sm="6"><StatCard label="已启用" :value="enabledCount" :icon="MagicStick" color="#34d399" class="rise" style="--d:.14s" /></el-col>
-      <el-col :xs="12" :sm="6"><StatCard label="已配密钥" :value="keyedCount" :icon="Star" color="#fbbf24" class="rise" style="--d:.18s" /></el-col>
-      <el-col :xs="12" :sm="6"><StatCard label="默认模型" :value="defaultModel?.name ?? '—'" :icon="Plus" color="#a78bfa" class="rise" style="--d:.22s" /></el-col>
+      <el-col :xs="12" :sm="6"><StatCard label="模型总数" :value="models.length" :icon="Connection" color="#4f5ad1" class="rise" style="--d:.10s" /></el-col>
+      <el-col :xs="12" :sm="6"><StatCard label="已启用" :value="enabledCount" :icon="MagicStick" color="#059669" class="rise" style="--d:.14s" /></el-col>
+      <el-col :xs="12" :sm="6"><StatCard label="已配密钥" :value="keyedCount" :icon="Star" color="#b45309" class="rise" style="--d:.18s" /></el-col>
+      <el-col :xs="12" :sm="6"><StatCard label="默认模型" :value="defaultModel?.name ?? '—'" :icon="Plus" color="#6d4fd6" class="rise" style="--d:.22s" /></el-col>
     </el-row>
 
     <!-- 模型能力对比 -->
@@ -318,23 +321,23 @@ onMounted(load)
 
 /* 状态圆点 */
 .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
-.st-ok { background: var(--et-ok); box-shadow: 0 0 8px rgba(52, 211, 153, 0.6); }
-.st-warn { background: var(--et-warn); box-shadow: 0 0 8px rgba(251, 191, 36, 0.6); }
+.st-ok { background: var(--et-ok); }
+.st-warn { background: var(--et-warn); }
 .st-off { background: var(--et-text-muted); }
 
 /* ========== 生效模型横幅 ========== */
 .status-banner { display: flex; align-items: center; gap: 14px; padding: 16px 22px; margin-top: 16px; }
 .status-banner.ok {
-  border-color: rgba(52, 211, 153, 0.3);
-  background: linear-gradient(120deg, rgba(52, 211, 153, 0.08), rgba(56, 225, 255, 0.05));
+  border-color: rgba(5, 150, 105, 0.3);
+  background: rgba(5, 150, 105, 0.06);
 }
 .status-banner.warn {
-  border-color: rgba(251, 191, 36, 0.3);
-  background: linear-gradient(120deg, rgba(251, 191, 36, 0.08), rgba(109, 124, 255, 0.05));
+  border-color: rgba(180, 83, 9, 0.3);
+  background: rgba(180, 83, 9, 0.06);
 }
 .sb-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .sb-title { font-size: 14px; font-weight: 600; color: var(--et-text); }
-.sb-title b { color: var(--et-grad-c); }
+.sb-title b { color: #0e7490; }
 .sb-sub { font-size: 12px; color: var(--et-text-muted); }
 
 .stats-row { margin-top: 16px; }
@@ -356,15 +359,15 @@ onMounted(load)
 .model-grid .model-card + .model-card { margin-top: 0; }
 .model-card { padding: 16px 18px; }
 .model-card.testing {
-  border-color: rgba(56, 225, 255, 0.35);
-  box-shadow: 0 0 0 1px rgba(56, 225, 255, 0.15), var(--et-shadow-md);
+  border-color: rgba(8, 145, 178, 0.35);
+  box-shadow: 0 0 0 1px rgba(8, 145, 178, 0.15), var(--et-shadow-md);
 }
 .mc-head { display: flex; align-items: center; gap: 12px; }
 .mc-id { flex: 1; min-width: 0; }
 .mc-name { font-size: 14px; font-weight: 700; color: var(--et-text); display: flex; align-items: center; gap: 8px; }
 .mc-sub { font-size: 11.5px; color: var(--et-text-muted); margin-top: 3px; }
 .mc-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--et-text-secondary); flex-shrink: 0; }
-.mc-status.testing { color: var(--et-grad-c); }
+.mc-status.testing { color: #0e7490; }
 .mc-url {
   margin-top: 12px; font-size: 11.5px;
   font-family: 'SF Mono', Menlo, Consolas, monospace;

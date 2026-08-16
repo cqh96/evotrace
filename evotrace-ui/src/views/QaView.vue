@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onMounted, ref, watch } from 'vue'
-import { Promotion, Warning } from '@element-plus/icons-vue'
+import { Promotion, Warning, Refresh } from '@element-plus/icons-vue'
 import { qaApi, modelConfigApi, type ModelConfig } from '../api'
 import { renderMarkdown } from '../utils/markdown'
 import { ElMessage } from 'element-plus'
@@ -21,13 +21,26 @@ const messages = ref<Message[]>([
 ])
 
 // 加载启用的模型配置,默认选中默认模型
+async function loadModels() {
+  const all = await modelConfigApi.list()
+  models.value = all.filter(m => m.enabled)
+  selectedModelId.value = all.find(m => m.enabled && m.default)?.id ?? all.find(m => m.enabled)?.id ?? null
+}
+
 onMounted(async () => {
   try {
-    const all = await modelConfigApi.list()
-    models.value = all.filter(m => m.enabled)
-    selectedModelId.value = all.find(m => m.enabled && m.default)?.id ?? all.find(m => m.enabled)?.id ?? null
+    await loadModels()
   } catch { /* 拦截器已提示 */ }
 })
+
+// 手动刷新模型列表(只重新拉取,不重复初始化消息/欢迎语)
+async function refreshModels() {
+  try {
+    await loadModels()
+  } catch {
+    ElMessage.error('刷新模型列表失败')
+  }
+}
 
 async function ask() {
   if (!question.value.trim() || loading.value) return
@@ -102,6 +115,9 @@ watch([messages, loading], async () => {
           </div>
           <el-tooltip v-if="models.length === 0" content="暂无启用模型,请到「管理 → AI 模型配置」配置">
             <el-icon class="warn-ic"><Warning /></el-icon>
+          </el-tooltip>
+          <el-tooltip content="刷新模型列表">
+            <el-icon class="refresh-ic" @click="refreshModels"><Refresh /></el-icon>
           </el-tooltip>
         </div>
       </div>
@@ -244,6 +260,17 @@ watch([messages, loading], async () => {
   cursor: pointer;
 }
 
+.refresh-ic {
+  color: var(--et-text-muted);
+  cursor: pointer;
+  transition: color 0.2s, transform 0.2s;
+}
+
+.refresh-ic:hover {
+  color: var(--et-primary);
+  transform: rotate(90deg);
+}
+
 /* ======== 消息区 ======== */
 .messages {
   flex: 1;
@@ -284,11 +311,11 @@ watch([messages, loading], async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b) 60%, var(--et-grad-c));
+  background: var(--et-primary);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
-  box-shadow: 0 5px 14px var(--et-glow);
+  box-shadow: var(--et-shadow-sm);
 }
 
 .bubble {
@@ -320,7 +347,7 @@ watch([messages, loading], async () => {
 .bubble .md ul, .bubble .md ol { margin: 6px 0; padding-left: 20px; }
 .bubble .md li { margin: 3px 0; }
 .bubble .md code {
-  background: rgba(109, 124, 255, 0.14);
+  background: rgba(79, 90, 209, 0.14);
   padding: 1.5px 6px; border-radius: 6px;
   font-size: 12.5px; font-family: 'SF Mono', Menlo, Consolas, monospace;
 }
@@ -337,20 +364,20 @@ watch([messages, loading], async () => {
   margin: 8px 0; padding: 4px 12px;
   border-left: 3px solid var(--et-primary);
   color: var(--et-text-secondary);
-  background: rgba(109, 124, 255, 0.08);
+  background: rgba(79, 90, 209, 0.08);
   border-radius: 0 8px 8px 0;
 }
-.bubble .md a { color: var(--et-grad-c); text-decoration: underline; }
+.bubble .md a { color: #0891b2; text-decoration: underline; }
 .bubble .md table { border-collapse: collapse; margin: 8px 0; }
 .bubble .md th, .bubble .md td { border: 1px solid var(--et-border); padding: 5px 10px; }
 .bubble .md strong { font-weight: 700; }
 
-/* 用户：右侧渐变蓝紫气泡 */
+/* 用户：右侧纯色蓝紫气泡 */
 .msg.user .bubble {
   color: #fff;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b));
+  background: var(--et-primary);
   border-top-right-radius: 5px;
-  box-shadow: 0 8px 24px rgba(109, 124, 255, 0.28);
+  box-shadow: var(--et-shadow-sm);
 }
 
 .msg.user .bubble::after {
@@ -362,16 +389,14 @@ watch([messages, loading], async () => {
   height: 10px;
   transform: rotate(45deg);
   border-radius: 2px;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b));
+  background: var(--et-primary);
 }
 
-/* AI：左侧玻璃气泡 */
+/* AI：左侧气泡 */
 .msg.ai .bubble {
   background: var(--et-card-bg);
   border: 1px solid var(--et-border);
   border-top-left-radius: 5px;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   color: var(--et-text);
 }
 
@@ -426,16 +451,7 @@ watch([messages, loading], async () => {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-c));
-  animation: bounce 1.2s infinite;
-}
-
-.typing .dot:nth-child(2) { animation-delay: 0.2s; }
-.typing .dot:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes bounce {
-  0%, 60%, 100% { transform: translateY(0); }
-  30% { transform: translateY(-5px); }
+  background: var(--et-primary);
 }
 
 /* 建议问题 chips */
@@ -469,13 +485,13 @@ watch([messages, loading], async () => {
 }
 
 .sug-chip .el-icon {
-  color: var(--et-grad-b);
+  color: #6d4fd6;
 }
 
 .sug-chip:hover {
   color: var(--et-text);
   border-color: var(--et-primary);
-  box-shadow: 0 0 0 3px rgba(109, 124, 255, 0.12);
+  box-shadow: 0 0 0 3px rgba(79, 90, 209, 0.12);
   transform: translateY(-1px);
 }
 
@@ -489,8 +505,6 @@ watch([messages, loading], async () => {
   border-radius: 16px;
   background: var(--et-bg-muted);
   border: 1px solid var(--et-border);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   box-shadow: var(--et-shadow-sm);
   flex-shrink: 0;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -498,7 +512,7 @@ watch([messages, loading], async () => {
 
 .input-bar:focus-within {
   border-color: var(--et-primary);
-  box-shadow: 0 0 0 3px rgba(109, 124, 255, 0.15);
+  box-shadow: 0 0 0 3px rgba(79, 90, 209, 0.15);
 }
 
 .input-bar .el-input {

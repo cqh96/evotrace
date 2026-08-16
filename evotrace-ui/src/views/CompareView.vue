@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Refresh } from '@element-plus/icons-vue'
 import { storeToRefs } from 'pinia'
 import { releaseApi, type CompareReport } from '../api'
 import { useProjectStore } from '../stores/project'
@@ -169,6 +170,9 @@ const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Bo
           <el-button type="primary" class="run-btn" :loading="loading" :disabled="from === to" @click="runCompare">
             <el-icon v-if="!loading" :size="15"><DataAnalysis /></el-icon>生成对比报告
           </el-button>
+          <el-button size="small" :loading="loading" @click="loadVersions">
+            <el-icon v-if="!loading" :size="13"><Refresh /></el-icon>刷新
+          </el-button>
         </div>
       </div>
     </section>
@@ -178,7 +182,7 @@ const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Bo
       <div class="stats-top">
         <div class="version-pair">
           <span class="v-chip v-from">{{ report.fromVersion }}</span>
-          <span class="v-arrow et-grad-text">→</span>
+          <span class="v-arrow">→</span>
           <span class="v-chip v-to">{{ report.toVersion }}</span>
           <span v-if="usingDemo" class="demo-badge" title="服务端未就绪时展示的内置演示数据">演示数据</span>
         </div>
@@ -335,8 +339,8 @@ const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Bo
 .swap-btn:hover:not(:disabled) {
   color: #fff;
   border-color: var(--et-primary);
-  background: rgba(109, 124, 255, 0.14);
-  box-shadow: 0 0 0 3px rgba(109, 124, 255, 0.12);
+  background: rgba(79, 90, 209, 0.14);
+  box-shadow: 0 0 0 3px rgba(79, 90, 209, 0.12);
   transform: rotate(180deg);
 }
 
@@ -375,14 +379,14 @@ const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Bo
 
 .v-from {
   color: #fff;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b));
-  box-shadow: 0 6px 16px var(--et-glow);
+  background: var(--et-primary);
+  box-shadow: var(--et-shadow-sm);
 }
 
 .v-to {
-  color: #062233;
-  background: linear-gradient(135deg, #0ea5e9, var(--et-grad-c));
-  box-shadow: 0 6px 16px rgba(56, 225, 255, 0.3);
+  color: #fff;
+  background: #0891b2;
+  box-shadow: var(--et-shadow-sm);
 }
 
 .v-arrow {
@@ -396,8 +400,8 @@ const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Bo
   padding: 4px 11px;
   border-radius: 20px;
   color: var(--et-warn);
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.16), rgba(249, 115, 22, 0.12));
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: rgba(180, 83, 9, 0.12);
+  border: 1px solid rgba(180, 83, 9, 0.3);
 }
 
 .note-btn {
@@ -429,35 +433,35 @@ const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Bo
 }
 
 .chip-glass .el-icon {
-  color: var(--et-grad-c);
+  color: #0e7490;
 }
 
 .chip-lines {
   color: var(--et-ok);
-  background: rgba(52, 211, 153, 0.12);
+  background: rgba(5, 150, 105, 0.12);
 }
 
 .chip-lines.del {
   color: var(--et-danger);
-  background: rgba(251, 113, 133, 0.12);
+  background: rgba(220, 38, 38, 0.12);
 }
 
 .chip-add {
   color: #fff;
-  background: linear-gradient(135deg, #34d399, #22c55e);
-  box-shadow: 0 5px 14px rgba(52, 211, 153, 0.3);
+  background: #059669;
+  box-shadow: var(--et-shadow-sm);
 }
 
 .chip-mod {
   color: #fff;
-  background: linear-gradient(135deg, #fbbf24, #f97316);
-  box-shadow: 0 5px 14px rgba(251, 191, 36, 0.3);
+  background: #d97706;
+  box-shadow: var(--et-shadow-sm);
 }
 
 .chip-del {
   color: #fff;
-  background: linear-gradient(135deg, #fb7185, #f43f5e);
-  box-shadow: 0 5px 14px rgba(251, 113, 133, 0.3);
+  background: #dc2626;
+  box-shadow: var(--et-shadow-sm);
 }
 
 /* ======== 对比详情 ======== */
@@ -478,7 +482,7 @@ const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Bo
   padding: 1px 7px;
   border-radius: 20px;
   color: var(--et-primary-light);
-  background: rgba(109, 124, 255, 0.13);
+  background: rgba(79, 90, 209, 0.13);
 }
 
 .tab-content {
@@ -498,8 +502,7 @@ const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Bo
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-c));
-  box-shadow: 0 0 8px var(--et-glow);
+  background: var(--et-primary);
 }
 
 /* 变化标记 */
@@ -519,27 +522,27 @@ const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Bo
   border-radius: 50%;
 }
 
-.flag-added { color: var(--et-ok); background: rgba(52, 211, 153, 0.12); }
-.flag-added i { background: var(--et-ok); box-shadow: 0 0 8px rgba(52, 211, 153, 0.8); }
-.flag-removed { color: var(--et-danger); background: rgba(251, 113, 133, 0.12); }
-.flag-removed i { background: var(--et-danger); box-shadow: 0 0 8px rgba(251, 113, 133, 0.8); }
-.flag-modified { color: var(--et-warn); background: rgba(251, 191, 36, 0.13); }
-.flag-modified i { background: var(--et-warn); box-shadow: 0 0 8px rgba(251, 191, 36, 0.8); }
+.flag-added { color: var(--et-ok); background: rgba(5, 150, 105, 0.12); }
+.flag-added i { background: var(--et-ok); }
+.flag-removed { color: var(--et-danger); background: rgba(220, 38, 38, 0.12); }
+.flag-removed i { background: var(--et-danger); }
+.flag-modified { color: var(--et-warn); background: rgba(180, 83, 9, 0.13); }
+.flag-modified i { background: var(--et-warn); }
 .flag-unchanged { color: var(--et-text-muted); background: var(--et-bg-muted); }
 .flag-unchanged i { background: var(--et-text-muted); }
 
 /* 行级高亮：新增 / 删除 / 修改 */
-.diff-card :deep(.el-table__body tr.diff-added > td.el-table__cell) { background: rgba(52, 211, 153, 0.055); }
-.diff-card :deep(.el-table__body tr.diff-added:hover > td.el-table__cell) { background: rgba(52, 211, 153, 0.09); }
-.diff-card :deep(.el-table__body tr.diff-added > td.el-table__cell:first-child) { box-shadow: inset 3px 0 0 rgba(52, 211, 153, 0.65); }
+.diff-card :deep(.el-table__body tr.diff-added > td.el-table__cell) { background: rgba(5, 150, 105, 0.055); }
+.diff-card :deep(.el-table__body tr.diff-added:hover > td.el-table__cell) { background: rgba(5, 150, 105, 0.09); }
+.diff-card :deep(.el-table__body tr.diff-added > td.el-table__cell:first-child) { box-shadow: inset 3px 0 0 rgba(5, 150, 105, 0.65); }
 
-.diff-card :deep(.el-table__body tr.diff-removed > td.el-table__cell) { background: rgba(251, 113, 133, 0.05); }
-.diff-card :deep(.el-table__body tr.diff-removed:hover > td.el-table__cell) { background: rgba(251, 113, 133, 0.085); }
-.diff-card :deep(.el-table__body tr.diff-removed > td.el-table__cell:first-child) { box-shadow: inset 3px 0 0 rgba(251, 113, 133, 0.6); }
+.diff-card :deep(.el-table__body tr.diff-removed > td.el-table__cell) { background: rgba(220, 38, 38, 0.05); }
+.diff-card :deep(.el-table__body tr.diff-removed:hover > td.el-table__cell) { background: rgba(220, 38, 38, 0.085); }
+.diff-card :deep(.el-table__body tr.diff-removed > td.el-table__cell:first-child) { box-shadow: inset 3px 0 0 rgba(220, 38, 38, 0.6); }
 
-.diff-card :deep(.el-table__body tr.diff-modified > td.el-table__cell) { background: rgba(251, 191, 36, 0.045); }
-.diff-card :deep(.el-table__body tr.diff-modified:hover > td.el-table__cell) { background: rgba(251, 191, 36, 0.08); }
-.diff-card :deep(.el-table__body tr.diff-modified > td.el-table__cell:first-child) { box-shadow: inset 3px 0 0 rgba(251, 191, 36, 0.55); }
+.diff-card :deep(.el-table__body tr.diff-modified > td.el-table__cell) { background: rgba(180, 83, 9, 0.045); }
+.diff-card :deep(.el-table__body tr.diff-modified:hover > td.el-table__cell) { background: rgba(180, 83, 9, 0.08); }
+.diff-card :deep(.el-table__body tr.diff-modified > td.el-table__cell:first-child) { box-shadow: inset 3px 0 0 rgba(180, 83, 9, 0.55); }
 
 /* 变更明细 */
 .type-text {

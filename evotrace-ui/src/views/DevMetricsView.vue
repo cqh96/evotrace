@@ -40,7 +40,7 @@ function observeChart(el: HTMLElement) {
 const statusLabels: Record<string, string> = {
   OPEN: '打开', IN_PROGRESS: '处理中', FIXED: '已修复', REOPENED: '重新打开', VERIFIED: '已验收', CLOSED: '已关闭'
 }
-const sevColors: Record<string, string> = { P0: '#fb7185', P1: '#fbbf24', P2: '#38e1ff', P3: '#34d399' }
+const sevColors: Record<string, string> = { P0: '#dc2626', P1: '#b45309', P2: '#0891b2', P3: '#059669' }
 
 async function loadAll() {
   if (!project.value) return
@@ -93,10 +93,10 @@ function renderTrend() {
     xAxis: { type: 'category', data: d.map(p => p.day), axisLine: { lineStyle: { color: v.grid } }, axisLabel: { color: v.axis } },
     yAxis: { type: 'value', minInterval: 1, splitLine: { lineStyle: { color: v.grid } }, axisLabel: { color: v.axis } },
     series: [
-      { name: '提交', type: 'line', smooth: true, data: d.map(p => p.changes), itemStyle: { color: '#6d7cff' }, areaStyle: { opacity: 0.08 } },
-      { name: '需求', type: 'line', smooth: true, data: d.map(p => p.requirements), itemStyle: { color: '#38e1ff' } },
-      { name: '缺陷', type: 'line', smooth: true, data: d.map(p => p.bugs), itemStyle: { color: '#fb7185' } },
-      { name: '用例', type: 'line', smooth: true, data: d.map(p => p.executions), itemStyle: { color: '#34d399' } }
+      { name: '提交', type: 'line', smooth: true, data: d.map(p => p.changes), itemStyle: { color: '#4f5ad1' }, areaStyle: { opacity: 0.2 } },
+      { name: '需求', type: 'line', smooth: true, data: d.map(p => p.requirements), itemStyle: { color: '#0891b2' } },
+      { name: '缺陷', type: 'line', smooth: true, data: d.map(p => p.bugs), itemStyle: { color: '#dc2626' } },
+      { name: '用例', type: 'line', smooth: true, data: d.map(p => p.executions), itemStyle: { color: '#059669' } }
     ]
   })
   observeChart(el)
@@ -122,7 +122,7 @@ function renderBugDist() {
     grid: { left: 40, right: 16, top: 40, bottom: 0 },
     xAxis: { type: 'category', data: sevs, axisLine: { lineStyle: { color: v.grid } }, axisLabel: { color: v.axis } },
     yAxis: { type: 'value', minInterval: 1, splitLine: { lineStyle: { color: v.grid } }, axisLabel: { color: v.axis } },
-    series: series.map((s, i) => ({ ...s, itemStyle: { color: ['#6d7cff', '#38e1ff', '#fbbf24', '#fb7185'][i] } }))
+    series: series.map((s, i) => ({ ...s, itemStyle: { color: ['#4f5ad1', '#0891b2', '#b45309', '#dc2626'][i] } }))
   })
   observeChart(el)
 }
@@ -144,8 +144,8 @@ function renderReqFlow() {
       { type: 'value', name: '天数', splitLine: { show: false }, axisLabel: { color: v.axis } }
     ],
     series: [
-      { name: '数量', type: 'bar', data: d.map(p => p.entries), itemStyle: { color: '#6d7cff', borderRadius: [6, 6, 0, 0] } },
-      { name: '平均驻留(天)', type: 'line', yAxisIndex: 1, smooth: true, data: d.map(p => p.avgDays), itemStyle: { color: '#fbbf24' } }
+      { name: '数量', type: 'bar', data: d.map(p => p.entries), itemStyle: { color: '#4f5ad1', borderRadius: [6, 6, 0, 0] } },
+      { name: '平均驻留(天)', type: 'line', yAxisIndex: 1, smooth: true, data: d.map(p => p.avgDays), itemStyle: { color: '#b45309' } }
     ]
   })
   observeChart(el)
@@ -174,21 +174,21 @@ onMounted(loadAll)
     <!-- ===== 指标卡 ===== -->
     <div class="stat-grid">
       <StatCard label="需求交付率" :value="overview?.requirementDeliveryRate ?? 0" suffix="%"
-                :icon="CircleCheck" color="#6d7cff" :loading="loading"
+                :icon="CircleCheck" color="#4f5ad1" :loading="loading"
                 :foot="`${overview?.requirementDone ?? 0}/${overview?.requirementTotal ?? 0} 需求已完成（近90天）`" />
       <StatCard label="变更吞吐" :value="overview?.changeThroughput ?? 0" suffix="次"
-                :icon="Lightning" color="#38e1ff" :loading="loading"
+                :icon="Lightning" color="#0891b2" :loading="loading"
                 :foot="`日均 ${overview?.avgDailyChanges ?? 0} 次提交（近30天）`" />
       <StatCard label="缺陷逃逸率" :value="overview?.bugEscapeRate ?? 0" suffix="%"
-                :icon="Warning" color="#fb7185" :loading="loading"
+                :icon="Warning" color="#dc2626" :loading="loading"
                 :foot="`共 ${overview?.bugTotal ?? 0} 缺陷，未关闭 ${overview?.bugOpen ?? 0}`" />
       <StatCard label="用例通过率" :value="overview?.testPassRate ?? 0" suffix="%"
-                :icon="Aim" color="#34d399" :loading="loading"
+                :icon="Aim" color="#059669" :loading="loading"
                 :foot="`近90天执行 ${overview?.testExecutions ?? 0} 次`" />
-      <StatCard label="发布周期" :value="cycleVal" :icon="Calendar" color="#a78bfa" :loading="loading"
+      <StatCard label="发布周期" :value="cycleVal" :icon="Calendar" color="#6d4fd6" :loading="loading"
                 :foot="`共 ${overview?.releaseCount ?? 0} 次发布`" />
       <StatCard label="需求平均交付周期" :value="overview?.avgRequirementCycleDays == null ? '—' : `${overview.avgRequirementCycleDays} 天`"
-                :icon="TrendCharts" color="#fbbf24" :loading="loading" :foot="'DONE 需求从创建到完成'" />
+                :icon="TrendCharts" color="#b45309" :loading="loading" :foot="'DONE 需求从创建到完成'" />
     </div>
 
     <!-- ===== 趋势 ===== -->
@@ -279,16 +279,15 @@ onMounted(loadAll)
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
-  color: var(--et-text);
-  background: rgba(251, 191, 36, 0.14);
-  color: #fbbf24;
+  background: rgba(180, 83, 9, 0.12);
+  color: #b45309;
   cursor: pointer;
   transition: all 0.18s;
 }
-.ops-btn:hover { background: rgba(251, 191, 36, 0.26); box-shadow: 0 0 14px rgba(251, 191, 36, 0.25); }
-.ops-btn.primary { background: rgba(109, 124, 255, 0.14); color: #a8b4ff; }
-.ops-btn.primary:hover { background: rgba(109, 124, 255, 0.28); box-shadow: 0 0 14px rgba(109, 124, 255, 0.3); }
-.g-rose { background: linear-gradient(135deg, #fb7185, #f43f5e); box-shadow: 0 4px 12px rgba(251, 113, 133, 0.3); }
+.ops-btn:hover { background: rgba(180, 83, 9, 0.2); }
+.ops-btn.primary { background: var(--et-primary-bg); color: #5f6bd8; }
+.ops-btn.primary:hover { background: rgba(79, 90, 209, 0.18); }
+.g-rose { background: #dc2626; }
 
 @media (max-width: 900px) {
   .grid-2 { grid-template-columns: 1fr; }

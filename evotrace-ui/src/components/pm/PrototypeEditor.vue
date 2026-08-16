@@ -57,8 +57,8 @@ const ELEMENT_TYPES = PALETTE.map((p) => p.type)
 const TYPE_LABELS: Record<string, string> = Object.fromEntries(PALETTE.map((p) => [p.type, p.label]))
 
 const typeColor: Record<string, string> = {
-  BUTTON: '#409eff', INPUT: '#909399', TEXT: '#606266', TABLE: '#e6a23c',
-  NAV: '#673ab7', IMAGE: '#42b983', LIST: '#f56c6c', SELECTOR: '#19be6b', CONTAINER: '#7f8fa6'
+  BUTTON: '#4f5ad1', INPUT: '#909399', TEXT: '#606266', TABLE: '#b45309',
+  NAV: '#6d4fd6', IMAGE: '#059669', LIST: '#dc2626', SELECTOR: '#16a34a', CONTAINER: '#7f8fa6'
 }
 
 // ---- 加载与保存 ----
@@ -479,15 +479,13 @@ onMounted(load)
 .panel-title::before {
   content: '';
   width: 4px; height: 13px; border-radius: 2px;
-  background: linear-gradient(180deg, var(--et-grad-a), var(--et-grad-c));
+  background: var(--et-primary);
 }
 .palette-item {
   display: flex; align-items: center; gap: 6px;
   padding: 8px 10px; margin-bottom: 5px; border-radius: 10px; cursor: grab;
   background: var(--et-card-bg);
   border: 1px solid var(--et-border);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   font-size: 13px;
   transition: border-color 0.15s, transform 0.15s;
 }
@@ -541,8 +539,6 @@ onMounted(load)
   border: 1px solid var(--et-border);
   border-radius: 10px;
   background: var(--et-card-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   transition: border-color 0.15s, background 0.15s;
 }
 .page-tab.active { border-color: var(--et-primary); background: var(--et-primary-bg) }

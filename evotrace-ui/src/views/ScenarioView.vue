@@ -3,7 +3,7 @@ import { ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Plus, Delete, VideoPlay, FolderChecked, Top, Bottom
+  Plus, Refresh, Delete, VideoPlay, FolderChecked, Top, Bottom
 } from '@element-plus/icons-vue'
 import { useProjectStore } from '../stores/project'
 import {
@@ -44,11 +44,11 @@ function assertionPlaceholder(t: string) {
 }
 
 const methodColor = (m: string) => {
-  const c: Record<string, string> = { GET: '#34d399', POST: '#a5b0ff', PUT: '#fbbf24', DELETE: '#fb7185', PATCH: '#f472b6' }
+  const c: Record<string, string> = { GET: '#059669', POST: '#5f6bd8', PUT: '#b45309', DELETE: '#dc2626', PATCH: '#d6336c' }
   return c[m.toUpperCase()] ?? '#93a0bd'
 }
-const stepTypeColor = (t: string) => ({ HTTP: '#38e1ff', SQL: '#f472b6', TCP: '#fb923c', EXTRACT: '#a78bfa', ASSERT: '#34d399', IF: '#fbbf24' }[t] ?? 'var(--et-text-muted)')
-const stepTypeBg = (t: string) => ({ HTTP: 'rgba(56,225,255,0.12)', SQL: 'rgba(244,114,182,0.14)', TCP: 'rgba(251,146,60,0.14)', EXTRACT: 'rgba(167,139,250,0.14)', ASSERT: 'rgba(52,211,153,0.12)', IF: 'rgba(251,191,36,0.14)' }[t] ?? 'var(--et-bg-muted)')
+const stepTypeColor = (t: string) => ({ HTTP: '#0891b2', SQL: '#d6336c', TCP: '#c2410c', EXTRACT: '#6d4fd6', ASSERT: '#059669', IF: '#b45309' }[t] ?? 'var(--et-text-muted)')
+const stepTypeBg = (t: string) => ({ HTTP: 'rgba(8,145,178,0.12)', SQL: 'rgba(214,51,108,0.14)', TCP: 'rgba(194,65,12,0.14)', EXTRACT: 'rgba(109,79,214,0.14)', ASSERT: 'rgba(5,150,105,0.12)', IF: 'rgba(180,83,9,0.14)' }[t] ?? 'var(--et-bg-muted)')
 const stepDefaultName = (t: string) => ({ HTTP: 'HTTP 请求', SQL: 'SQL 查询', TCP: 'TCP 通信', EXTRACT: '提取变量', ASSERT: '结果断言', IF: '条件分支' }[t] ?? t)
 
 function defaultConfig(t: string): Record<string, any> {
@@ -213,6 +213,7 @@ const statusLabel = (s: string) => ({ PASSED: '通过', FAILED: '失败', ERROR:
       </div>
       <div class="hero-actions">
         <el-button size="small" type="primary" :icon="Plus" @click="newScenario">新建场景</el-button>
+        <button class="ops-btn" @click="load"><el-icon><Refresh /></el-icon> 刷新</button>
       </div>
     </div>
     <div class="main">
@@ -251,7 +252,7 @@ const statusLabel = (s: string) => ({ PASSED: '通过', FAILED: '失败', ERROR:
                   v-model="draftEnabled"
                   inline-prompt
                   active-text="启用" inactive-text="停用"
-                  :active-color="'#34d399'" :inactive-color="'#fb7185'"
+                  :active-color="'#059669'" :inactive-color="'#dc2626'"
                 />
               </span>
             </div>
@@ -280,12 +281,12 @@ const statusLabel = (s: string) => ({ PASSED: '通过', FAILED: '失败', ERROR:
               <el-button size="small" class="ops-btn" :icon="Plus">添加步骤</el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="HTTP"><span class="dd-item"><i class="dd-dot" style="background:#38e1ff"></i>HTTP 请求</span></el-dropdown-item>
-                  <el-dropdown-item command="SQL"><span class="dd-item"><i class="dd-dot" style="background:#f472b6"></i>SQL 查询</span></el-dropdown-item>
-                  <el-dropdown-item command="TCP"><span class="dd-item"><i class="dd-dot" style="background:#fb923c"></i>TCP 通信</span></el-dropdown-item>
-                  <el-dropdown-item command="EXTRACT"><span class="dd-item"><i class="dd-dot" style="background:#a78bfa"></i>提取变量</span></el-dropdown-item>
-                  <el-dropdown-item command="ASSERT"><span class="dd-item"><i class="dd-dot" style="background:#34d399"></i>结果断言</span></el-dropdown-item>
-                  <el-dropdown-item command="IF"><span class="dd-item"><i class="dd-dot" style="background:#fbbf24"></i>条件分支</span></el-dropdown-item>
+                  <el-dropdown-item command="HTTP"><span class="dd-item"><i class="dd-dot" style="background:#0891b2"></i>HTTP 请求</span></el-dropdown-item>
+                  <el-dropdown-item command="SQL"><span class="dd-item"><i class="dd-dot" style="background:#d6336c"></i>SQL 查询</span></el-dropdown-item>
+                  <el-dropdown-item command="TCP"><span class="dd-item"><i class="dd-dot" style="background:#c2410c"></i>TCP 通信</span></el-dropdown-item>
+                  <el-dropdown-item command="EXTRACT"><span class="dd-item"><i class="dd-dot" style="background:#6d4fd6"></i>提取变量</span></el-dropdown-item>
+                  <el-dropdown-item command="ASSERT"><span class="dd-item"><i class="dd-dot" style="background:#059669"></i>结果断言</span></el-dropdown-item>
+                  <el-dropdown-item command="IF"><span class="dd-item"><i class="dd-dot" style="background:#b45309"></i>条件分支</span></el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -436,7 +437,7 @@ const statusLabel = (s: string) => ({ PASSED: '通过', FAILED: '失败', ERROR:
 .scenario-page { height: calc(100vh - 150px); display: flex; flex-direction: column; }
 .main { display: flex; gap: 12px; flex: 1; min-height: 0; }
 .ops-btn { font-weight: 600; background: color-mix(in srgb, currentColor 12%, transparent); border-radius: 8px; }
-.ops-btn:hover { background: color-mix(in srgb, currentColor 22%, transparent); box-shadow: 0 0 12px var(--et-glow); }
+.ops-btn:hover { background: color-mix(in srgb, currentColor 22%, transparent); }
 .ops-btn.danger { color: var(--et-danger); }
 .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

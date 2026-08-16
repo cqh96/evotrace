@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Box, Refresh, Download, VideoPlay, Delete } from '@element-plus/icons-vue'
+import { Box, Refresh, Download, VideoPlay, Delete, Upload } from '@element-plus/icons-vue'
 import { pluginApi, type PluginCatalogItem, type PluginInstall, type PluginRelease } from '../api'
 
 const loading = ref(false)
@@ -11,7 +11,7 @@ const categoryLabels: Record<string, string> = {
   CODE: '代码解析', API: '接口解析', DDL: 'DDL 解析', CONFIG: '配置解析', DEPENDENCY: '依赖解析'
 }
 const categoryColors: Record<string, string> = {
-  CODE: '#a8b4ff', API: '#38e1ff', DDL: '#34d399', CONFIG: '#fbbf24', DEPENDENCY: '#a78bfa'
+  CODE: '#5f6bd8', API: '#0891b2', DDL: '#059669', CONFIG: '#b45309', DEPENDENCY: '#6d4fd6'
 }
 
 const installedMap = ref<Record<string, PluginInstall>>({})
@@ -53,6 +53,41 @@ async function doInstall() {
   }
 }
 
+// ===== 发布 =====
+const publishOpen = ref(false)
+const publishForm = ref({
+  version: '', minVersion: '', maxVersion: '', author: '', description: ''
+})
+const publishFile = ref<File | null>(null)
+const publishing = ref(false)
+function onFileChange(file: { raw?: File }) {
+  publishFile.value = file.raw ?? null
+}
+async function doPublish() {
+  if (!publishFile.value) return ElMessage.warning('请选择插件 Jar 文件')
+  if (!publishForm.value.version.trim()) return ElMessage.warning('请填写版本号')
+  publishing.value = true
+  try {
+    const fd = new FormData()
+    fd.append('file', publishFile.value)
+    fd.append('version', publishForm.value.version.trim())
+    if (publishForm.value.minVersion.trim()) fd.append('minVersion', publishForm.value.minVersion.trim())
+    if (publishForm.value.maxVersion.trim()) fd.append('maxVersion', publishForm.value.maxVersion.trim())
+    if (publishForm.value.author.trim()) fd.append('author', publishForm.value.author.trim())
+    if (publishForm.value.description.trim()) fd.append('description', publishForm.value.description.trim())
+    const res = await pluginApi.publish(fd)
+    ElMessage.success(`插件「${res.name}」已上架市场`)
+    publishOpen.value = false
+    publishFile.value = null
+    publishForm.value = { version: '', minVersion: '', maxVersion: '', author: '', description: '' }
+    load()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '发布失败')
+  } finally {
+    publishing.value = false
+  }
+}
+
 async function toggle(item: PluginInstall) {
   try {
     await pluginApi.toggle(item.pluginId, !item.enabled)
@@ -78,6 +113,7 @@ onMounted(load)
         <span class="tip">解析器插件市场 —— SPI 生态，无需改主代码即可扩展解析能力</span>
       </div>
       <div class="right">
+        <button class="ops-btn primary" @click="publishOpen = true"><el-icon><Upload /></el-icon> 发布插件</button>
         <button class="ops-btn" @click="load"><el-icon><Refresh /></el-icon> 刷新</button>
       </div>
     </div>
@@ -174,6 +210,36 @@ onMounted(load)
         <el-button type="primary" @click="doInstall">安装</el-button>
       </template>
     </el-dialog>
+
+    <!-- 发布弹窗 -->
+    <el-dialog v-model="publishOpen" title="发布插件" width="480px">
+      <el-form label-width="90px">
+        <el-form-item label="插件 Jar" required>
+          <el-upload drag :auto-upload="false" :limit="1" accept=".jar"
+                     :on-change="onFileChange" :on-remove="() => (publishFile = null)"
+                     style="width: 100%">
+            <el-icon class="el-icon--upload"><Upload /></el-icon>
+            <div class="el-upload__text">拖拽 Jar 到此处,或 <em>点击选择文件</em></div>
+            <template #tip>
+              <div class="el-upload__tip">实现 io.evotrace.server.plugin.ParserPlugin SPI 的插件包,身份以 Jar 内声明为准</div>
+            </template>
+          </el-upload>
+        </el-form-item>
+        <el-form-item label="版本号" required>
+          <el-input v-model="publishForm.version" placeholder="如 1.0.0" />
+        </el-form-item>
+        <div class="form-row">
+          <el-form-item label="最低兼容"><el-input v-model="publishForm.minVersion" placeholder="如 2.5.0" /></el-form-item>
+          <el-form-item label="最高兼容"><el-input v-model="publishForm.maxVersion" placeholder="如 3.0.0" /></el-form-item>
+        </div>
+        <el-form-item label="作者"><el-input v-model="publishForm.author" placeholder="作者/团队名" /></el-form-item>
+        <el-form-item label="描述"><el-input v-model="publishForm.description" type="textarea" :rows="2" placeholder="插件功能简述" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="publishOpen = false">取消</el-button>
+        <el-button type="primary" :loading="publishing" @click="doPublish">发布</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -190,11 +256,11 @@ onMounted(load)
   padding: 8px 14px; border-radius: 20px; border: 1px solid transparent;
   font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.18s;
 }
-.ops-btn.primary { background: rgba(109, 124, 255, 0.14); color: #a8b4ff; }
-.ops-btn.primary:hover { background: rgba(109, 124, 255, 0.28); box-shadow: 0 0 12px rgba(109, 124, 255, 0.3); }
-.ops-btn.danger { background: rgba(251, 113, 133, 0.14); color: #fb7185; }
-.ops-btn.danger:hover { background: rgba(251, 113, 133, 0.28); box-shadow: 0 0 12px rgba(251, 113, 133, 0.3); }
-.ops-btn.success { background: rgba(52, 211, 153, 0.14); color: #34d399; }
+.ops-btn.primary { background: var(--et-primary-bg); color: #5f6bd8; }
+.ops-btn.primary:hover { background: rgba(79, 90, 209, 0.18); }
+.ops-btn.danger { background: rgba(220, 38, 38, 0.12); color: #dc2626; }
+.ops-btn.danger:hover { background: rgba(220, 38, 38, 0.2); }
+.ops-btn.success { background: rgba(5, 150, 105, 0.12); color: #059669; }
 .ops-btn.success[disabled] { opacity: 0.6; cursor: not-allowed; }
 .ops { display: flex; gap: 6px; }
 .et-card-head {
@@ -206,7 +272,7 @@ onMounted(load)
 .p-avatar {
   width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b));
+  background: var(--et-primary);
   color: #fff;
 }
 .plugin-name .name { font-weight: 600; }
@@ -232,7 +298,7 @@ onMounted(load)
 .pc-icon {
   width: 40px; height: 40px; border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(109, 124, 255, 0.12); color: var(--et-primary-light);
+  background: var(--et-primary-bg); color: var(--et-primary-light);
 }
 .pc-name { font-size: 15px; font-weight: 700; }
 .pc-id { font-size: 11px; color: var(--et-text-muted); font-family: ui-monospace, monospace; }
@@ -244,4 +310,6 @@ onMounted(load)
   padding: 40px; font-size: 13px;
 }
 .empty .el-icon { vertical-align: middle; margin-right: 6px; }
+.form-row { display: flex; gap: 12px; }
+.form-row .el-form-item { flex: 1; }
 </style>

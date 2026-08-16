@@ -22,18 +22,10 @@ const points = computed(() => {
     .map((v, i) => `${(i * stepX).toFixed(1)},${(h.value - ((v - min) / range) * h.value).toFixed(1)}`)
     .join(' ')
 })
-
-const fillId = `spark-fill-${Math.random().toString(36).slice(2, 7)}`
 </script>
 
 <template>
-  <svg :width="w" :height="h" class="sparkline" viewBox="0 0 {{ w }} {{ h }}">
-    <defs>
-      <linearGradient :id="fillId" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" :stop-color="stroke" stop-opacity="0.3" />
-        <stop offset="100%" :stop-color="stroke" stop-opacity="0.02" />
-      </linearGradient>
-    </defs>
+  <svg :width="w" :height="h" class="sparkline" :viewBox="`0 0 ${w} ${h}`">
     <polyline
       :points="points"
       fill="none"
@@ -45,7 +37,8 @@ const fillId = `spark-fill-${Math.random().toString(36).slice(2, 7)}`
     <polygon
       v-if="points"
       :points="`0,${h} ${points} ${w},${h}`"
-      :fill="`url(#${fillId})`"
+      :fill="stroke"
+      fill-opacity="0.15"
     />
   </svg>
 </template>

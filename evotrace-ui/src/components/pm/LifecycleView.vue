@@ -28,9 +28,9 @@ async function load() {
 }
 
 function progressColor(rate: number): string {
-  if (rate >= 100) return '#10b981'
-  if (rate >= 50) return '#409eff'
-  if (rate > 0) return '#e6a23c'
+  if (rate >= 100) return '#047857'
+  if (rate >= 50) return '#4f5ad1'
+  if (rate > 0) return '#b45309'
   return '#c0c4cc'
 }
 
@@ -117,8 +117,6 @@ onMounted(load)
   background: var(--et-card-bg);
   border: 1px solid var(--et-border);
   border-radius: var(--et-radius-lg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   padding: 18px;
   margin-bottom: 16px;
   transition: border-color 0.22s, box-shadow 0.22s;
@@ -136,8 +134,7 @@ onMounted(load)
   width: 4px;
   height: 14px;
   border-radius: 2px;
-  background: linear-gradient(180deg, var(--et-grad-a), var(--et-grad-c));
-  box-shadow: 0 0 8px rgba(109, 124, 255, 0.5);
+  background: var(--et-primary);
 }
 .roadmap-list { display: flex; flex-direction: column; gap: 10px }
 .roadmap-row {
@@ -153,10 +150,7 @@ onMounted(load)
 .rm-version {
   font-weight: 700;
   font-family: ui-monospace, monospace;
-  background: linear-gradient(90deg, var(--et-grad-a), var(--et-grad-c));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--et-text);
 }
 .rm-date { font-size: 12px; color: var(--et-text-muted) }
 .rm-progress { flex: 1 }

@@ -172,8 +172,6 @@ onMounted(load)
   background: var(--et-bg-muted);
   border: 1px solid var(--et-border);
   border-radius: 14px;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
 }
 .task-count {
   font-size: 12px;
@@ -187,7 +185,7 @@ onMounted(load)
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-c));
+  background: var(--et-primary);
 }
 .task-title { cursor: grab; display: flex; align-items: center; gap: 6px; transition: color 0.15s }
 .task-title:hover { color: var(--et-primary-light) }

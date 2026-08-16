@@ -472,7 +472,7 @@ export interface PerfTest {
 }
 export const perfApi = {
   list: (projectKey: string): Promise<PerfTest[]> => client.get(`/projects/${projectKey}/perf`),
-  create: (projectKey: string, data: { endpointId: number; name: string; concurrency?: number; durationSec?: number }): Promise<{ id: number }> =>
+  create: (projectKey: string, data: { endpointId: number; name: string; concurrency?: number; durationSec?: number; baseUrl?: string }): Promise<{ id: number }> =>
     client.post(`/projects/${projectKey}/perf`, data),
   run: (projectKey: string, id: number, baseUrl?: string): Promise<Record<string, any>> =>
     client.post(`/projects/${projectKey}/perf/${id}/run`, { baseUrl }, { timeout: 300000 }),
@@ -1159,7 +1159,9 @@ export const pluginApi = {
   install: (pluginId: string, version: string): Promise<void> => client.post('/plugins/install', { pluginId, version }),
   toggle: (pluginId: string, enabled: boolean): Promise<void> => client.put(`/plugins/${pluginId}/enable`, { enabled }),
   uninstall: (pluginId: string): Promise<void> => client.delete(`/plugins/${pluginId}/uninstall`),
-  installed: (): Promise<PluginInstall[]> => client.get('/plugins/installed')
+  installed: (): Promise<PluginInstall[]> => client.get('/plugins/installed'),
+  publish: (form: FormData): Promise<{ pluginId: string; name: string; category: string; version: string }> =>
+    client.post('/plugins/publish', form, { headers: { 'Content-Type': 'multipart/form-data' } })
 }
 
 // ========== GitLab 仓库集成（V2.5） ==========

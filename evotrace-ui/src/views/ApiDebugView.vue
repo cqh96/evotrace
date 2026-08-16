@@ -46,7 +46,7 @@ const groupByApp = computed<{ app: string; list: ApiEndpoint[] }[]>(() => {
 })
 
 const methodColor = (m: string) => {
-  const c: Record<string, string> = { GET: '#34d399', POST: '#a5b0ff', PUT: '#fbbf24', DELETE: '#fb7185', PATCH: '#f472b6' }
+  const c: Record<string, string> = { GET: '#059669', POST: '#5f6bd8', PUT: '#b45309', DELETE: '#dc2626', PATCH: '#d6336c' }
   return c[m.toUpperCase()] ?? '#93a0bd'
 }
 
@@ -409,7 +409,7 @@ const prettyBody = computed(() => {
 .search-input { width: 260px; }
 .main { display: flex; gap: 12px; flex: 1; min-height: 0; }
 .ops-btn { font-weight: 600; background: color-mix(in srgb, currentColor 12%, transparent); border-radius: 8px; }
-.ops-btn:hover { background: color-mix(in srgb, currentColor 22%, transparent); box-shadow: 0 0 12px var(--et-glow); }
+.ops-btn:hover { background: color-mix(in srgb, currentColor 22%, transparent); }
 
 .side-panel { width: 320px; flex-shrink: 0; background: var(--et-card-bg); border: 1px solid var(--et-border); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
 .side-tabs { flex: 1; display: flex; flex-direction: column; }
@@ -429,7 +429,7 @@ const prettyBody = computed(() => {
 .case-name { display: flex; align-items: center; min-width: 0; font-size: 13px; }
 .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .del-btn { color: var(--et-text-muted); }
-.del-btn:hover { color: #fb7185; }
+.del-btn:hover { color: #dc2626; }
 
 .work-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 .req-bar { display: flex; gap: 8px; align-items: center; }
@@ -444,10 +444,10 @@ const prettyBody = computed(() => {
 .resp-label { font-weight: 600; font-size: 13px; }
 .resp-meta { display: flex; gap: 10px; align-items: center; }
 .status { font-weight: 700; font-size: 13px; }
-.status.ok { color: #34d399; }
-.status.err { color: #fb7185; }
+.status.ok { color: #059669; }
+.status.err { color: #dc2626; }
 .dur { color: var(--et-text-muted); font-size: 12px; }
 .resp-body { flex: 1; overflow: auto; padding: 14px; margin: 0; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 12.5px; color: var(--et-text); white-space: pre-wrap; word-break: break-word; }
-.resp-error { flex: 1; padding: 14px; color: #fb7185; font-size: 13px; }
+.resp-error { flex: 1; padding: 14px; color: #dc2626; font-size: 13px; }
 .resp-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--et-text-muted); font-size: 13px; }
 </style>

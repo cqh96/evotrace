@@ -13,11 +13,11 @@ const loading = ref(false)
 const members = ref<ProjectMember[]>([])
 
 const roles: Record<string, { label: string; desc: string; color: string }> = {
-  ADMIN: { label: '管理员', desc: '全部权限', color: '#6d7cff' },
-  PM: { label: '产品经理', desc: '需求/发布/报表', color: '#38e1ff' },
-  DEVELOPER: { label: '开发', desc: '演化/代码/审查', color: '#34d399' },
-  QA: { label: '测试', desc: '用例/缺陷/质量', color: '#fbbf24' },
-  OPS: { label: '运维', desc: '接入/CI/监控', color: '#a78bfa' }
+  ADMIN: { label: '管理员', desc: '全部权限', color: '#4f5ad1' },
+  PM: { label: '产品经理', desc: '需求/发布/报表', color: '#0891b2' },
+  DEVELOPER: { label: '开发', desc: '演化/代码/审查', color: '#059669' },
+  QA: { label: '测试', desc: '用例/缺陷/质量', color: '#b45309' },
+  OPS: { label: '运维', desc: '接入/CI/监控', color: '#6d4fd6' }
 }
 
 async function load() {
@@ -82,7 +82,7 @@ onMounted(load)
           <el-table-column label="用户" min-width="180">
             <template #default="{ row }">
               <div class="user">
-                <div class="avatar" :style="{ background: roles[row.role]?.color || '#6d7cff' }">{{ row.username.charAt(0).toUpperCase() }}</div>
+                <div class="avatar" :style="{ background: roles[row.role]?.color || '#4f5ad1' }">{{ row.username.charAt(0).toUpperCase() }}</div>
                 <div>
                   <div class="uname">{{ row.username }}</div>
                   <div class="dname">{{ row.displayName || '未设置昵称' }}</div>
@@ -92,7 +92,7 @@ onMounted(load)
           </el-table-column>
           <el-table-column label="角色" width="160">
             <template #default="{ row }">
-              <span class="role-pill" :style="{ color: roles[row.role]?.color || '#6d7cff', background: `color-mix(in srgb, ${roles[row.role]?.color || '#6d7cff'} 14%, transparent)` }">
+              <span class="role-pill" :style="{ color: roles[row.role]?.color || '#4f5ad1', background: `color-mix(in srgb, ${roles[row.role]?.color || '#4f5ad1'} 14%, transparent)` }">
                 {{ roles[row.role]?.label || row.role }}
               </span>
             </template>
@@ -141,10 +141,10 @@ onMounted(load)
   padding: 8px 14px; border-radius: 20px; border: 1px solid transparent;
   font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.18s;
 }
-.ops-btn.primary { background: rgba(109, 124, 255, 0.14); color: #a8b4ff; }
-.ops-btn.primary:hover { background: rgba(109, 124, 255, 0.28); box-shadow: 0 0 12px rgba(109, 124, 255, 0.3); }
-.ops-btn.danger { background: rgba(251, 113, 133, 0.14); color: #fb7185; }
-.ops-btn.danger:hover { background: rgba(251, 113, 133, 0.28); box-shadow: 0 0 12px rgba(251, 113, 133, 0.3); }
+.ops-btn.primary { background: var(--et-primary-bg); color: #5f6bd8; }
+.ops-btn.primary:hover { background: rgba(79, 90, 209, 0.18); }
+.ops-btn.danger { background: rgba(220, 38, 38, 0.12); color: #dc2626; }
+.ops-btn.danger:hover { background: rgba(220, 38, 38, 0.2); }
 
 .role-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 18px; }
 .role-card {

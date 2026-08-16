@@ -155,8 +155,6 @@ async function aiDraft() {
   background: var(--et-bg-muted);
   border: 1px solid var(--et-border);
   border-radius: 14px;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   flex-wrap: wrap;
 }
 .doc-left, .doc-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
@@ -180,8 +178,6 @@ async function aiDraft() {
   background: var(--et-card-bg);
   border: 1px solid var(--et-border);
   border-radius: var(--et-radius-lg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   padding: 20px 24px;
   min-height: 480px;
   overflow: auto;
@@ -208,7 +204,7 @@ async function aiDraft() {
   width: 4px;
   height: 13px;
   border-radius: 2px;
-  background: linear-gradient(180deg, var(--et-grad-a), var(--et-grad-c));
+  background: var(--et-primary);
 }
 .version-row {
   display: flex;
@@ -225,15 +221,12 @@ async function aiDraft() {
 .version-row:hover { background: var(--et-bg-muted); border-color: var(--et-border) }
 .version-row.active {
   background: var(--et-primary-bg);
-  border-color: rgba(109, 124, 255, 0.28);
+  border-color: rgba(79, 90, 209, 0.28);
 }
 .version-info { display: flex; flex-direction: column; gap: 2px }
 .version-no { font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums }
 .version-row.active .version-no {
-  background: linear-gradient(90deg, var(--et-grad-a), var(--et-grad-c));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--et-text);
 }
 .version-meta { font-size: 11px; color: var(--et-text-muted) }
 </style>

@@ -147,10 +147,10 @@ const statOpenBugs = computed(() =>
 )
 
 const dotColors: Record<string, string> = {
-  DRAFT: '#5c6a8a', REVIEW: '#fbbf24', DEVELOPING: '#6d7cff', TESTING: '#fb7185', DONE: '#34d399'
+  DRAFT: '#5c6a8a', REVIEW: '#b45309', DEVELOPING: '#4f5ad1', TESTING: '#dc2626', DONE: '#059669'
 }
 function dotColor(status: string): string {
-  return dotColors[status] ?? '#6d7cff'
+  return dotColors[status] ?? '#4f5ad1'
 }
 function priClass(priority?: string): string {
   return ({ P0: 'p0', P1: 'p1', P2: 'p2' } as Record<string, string>)[priority ?? ''] ?? 'p3'
@@ -171,7 +171,7 @@ function reqCompPct(req: Requirement): number {
 }
 function compColor(req: Requirement): string {
   const pct = reqCompPct(req)
-  return pct >= 80 ? '#34d399' : pct >= 50 ? '#fbbf24' : '#fb7185'
+  return pct >= 80 ? '#059669' : pct >= 50 ? '#b45309' : '#dc2626'
 }
 </script>
 
@@ -200,13 +200,13 @@ function compColor(req: Requirement): string {
     <!-- ======== 统计 ======== -->
     <div class="stats-grid">
       <StatCard class="rise" style="--d: .06s" label="需求总数" :value="statTotal" suffix="项"
-                :icon="Tickets" color="#6d7cff" foot="全部看板需求" />
+                :icon="Tickets" color="#4f5ad1" foot="全部看板需求" />
       <StatCard class="rise" style="--d: .12s" label="完成率" :value="statDoneRate" suffix="%"
-                :icon="CircleCheckFilled" color="#34d399" foot="已完成 / 需求总数" />
+                :icon="CircleCheckFilled" color="#059669" foot="已完成 / 需求总数" />
       <StatCard class="rise" style="--d: .18s" label="进行中" :value="statInProgress" suffix="项"
-                :icon="Odometer" color="#fbbf24" foot="评审 / 开发 / 测试中" />
+                :icon="Odometer" color="#b45309" foot="评审 / 开发 / 测试中" />
       <StatCard class="rise" style="--d: .24s" label="遗留缺陷" :value="statOpenBugs" suffix="个"
-                :icon="Warning" color="#fb7185" foot="未关闭 Bug · 按严重度统计" />
+                :icon="Warning" color="#dc2626" foot="未关闭 Bug · 按严重度统计" />
     </div>
 
     <!-- ======== 看板 / 生命周期 / 门禁 / 通知 ======== -->
@@ -249,10 +249,10 @@ function compColor(req: Requirement): string {
                   </div>
 
                   <div class="req-meta">
-                    <span class="meta-chip"><i class="mc-dot" style="background: #6d7cff"></i>{{ req.linkedCommits ?? 0 }} 提交</span>
-                    <span class="meta-chip"><i class="mc-dot" style="background: #a78bfa"></i>{{ req.testCases ?? 0 }} 用例</span>
-                    <span class="meta-chip"><i class="mc-dot" style="background: #fb7185"></i>{{ req.openBugs ?? 0 }} 缺陷</span>
-                    <span v-if="req.taskCount != null" class="meta-chip"><i class="mc-dot" style="background: #38e1ff"></i>{{ req.taskDone ?? 0 }}/{{ req.taskCount }} 任务</span>
+                    <span class="meta-chip"><i class="mc-dot" style="background: #4f5ad1"></i>{{ req.linkedCommits ?? 0 }} 提交</span>
+                    <span class="meta-chip"><i class="mc-dot" style="background: #6d4fd6"></i>{{ req.testCases ?? 0 }} 用例</span>
+                    <span class="meta-chip"><i class="mc-dot" style="background: #dc2626"></i>{{ req.openBugs ?? 0 }} 缺陷</span>
+                    <span v-if="req.taskCount != null" class="meta-chip"><i class="mc-dot" style="background: #0891b2"></i>{{ req.taskDone ?? 0 }}/{{ req.taskCount }} 任务</span>
                   </div>
 
                   <div class="req-actions" @click.stop>
@@ -421,8 +421,6 @@ function compColor(req: Requirement): string {
   background: var(--et-card-bg);
   border: 1px solid var(--et-border);
   border-radius: var(--et-radius-lg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   padding: 14px 12px 12px;
   transition: border-color 0.22s, box-shadow 0.22s;
 }
@@ -447,7 +445,6 @@ function compColor(req: Requirement): string {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  box-shadow: 0 0 8px currentColor;
 }
 .col-name {
   font-size: 13.5px;
@@ -490,11 +487,8 @@ function compColor(req: Requirement): string {
   left: 14px;
   right: 14px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  background: var(--et-border);
   pointer-events: none;
-}
-[data-theme="light"] .kanban-card::before {
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
 }
 .kanban-card:hover {
   transform: translateY(-4px);
@@ -509,9 +503,9 @@ function compColor(req: Requirement): string {
   flex-wrap: wrap;
   margin-bottom: 8px;
 }
-.et-mini-tag.p0 { color: var(--et-danger); background: rgba(251, 113, 133, 0.13); }
-.et-mini-tag.p1 { color: var(--et-warn); background: rgba(251, 191, 36, 0.13); }
-.et-mini-tag.p2 { color: var(--et-primary-light); background: rgba(109, 124, 255, 0.15); }
+.et-mini-tag.p0 { color: var(--et-danger); background: rgba(220, 38, 38, 0.1); }
+.et-mini-tag.p1 { color: var(--et-warn); background: rgba(180, 83, 9, 0.1); }
+.et-mini-tag.p2 { color: var(--et-primary-light); background: var(--et-primary-bg); }
 .et-mini-tag.p3 { color: var(--et-text-muted); background: var(--et-bg-muted); }
 .ver-chip {
   font-size: 10.5px;
@@ -526,9 +520,9 @@ function compColor(req: Requirement): string {
 .req-key-chip {
   font-size: 10.5px;
   font-weight: 700;
-  color: var(--et-grad-c);
-  background: rgba(56, 225, 255, 0.1);
-  border: 1px solid rgba(56, 225, 255, 0.2);
+  color: #0e7490;
+  background: rgba(14, 116, 144, 0.1);
+  border: 1px solid rgba(14, 116, 144, 0.2);
   padding: 2.5px 8px;
   border-radius: 20px;
   font-family: ui-monospace, monospace;
@@ -538,7 +532,6 @@ function compColor(req: Requirement): string {
   height: 9px;
   border-radius: 50%;
   margin-left: auto;
-  box-shadow: 0 0 8px currentColor;
   flex-shrink: 0;
 }
 .est-chip {
@@ -570,7 +563,7 @@ function compColor(req: Requirement): string {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b));
+  background: var(--et-primary);
   color: #fff;
   font-size: 10.5px;
   font-weight: 700;
@@ -695,7 +688,6 @@ function compColor(req: Requirement): string {
   height: 8px;
   border-radius: 50%;
   background: var(--et-danger);
-  box-shadow: 0 0 8px rgba(251, 113, 133, 0.55);
   flex-shrink: 0;
 }
 .notif-dot.read {

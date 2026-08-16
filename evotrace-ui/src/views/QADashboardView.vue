@@ -517,7 +517,7 @@ function renderTrendCharts() {
   const isLight = document.documentElement.getAttribute('data-theme') === 'light'
   const AXIS = isLight ? '#909bb8' : '#5c6a8a'
   const SPLIT = isLight ? 'rgba(15,23,42,0.07)' : 'rgba(255,255,255,0.05)'
-  const C = { primary: '#6d7cff', violet: '#a78bfa', cyan: '#38e1ff', ok: '#34d399', warn: '#fbbf24', danger: '#fb7185' }
+  const C = { primary: '#4f5ad1', violet: '#6d4fd6', cyan: '#0891b2', ok: '#059669', warn: '#b45309', danger: '#dc2626' }
   const tooltip = {
     trigger: 'axis',
     backgroundColor: '#141a2e',
@@ -542,13 +542,13 @@ function renderTrendCharts() {
           name: '执行数', type: 'bar', data: execTrend.value.map(d => d.total), barMaxWidth: 16,
           itemStyle: {
             borderRadius: [4, 4, 0, 0],
-            color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(109,124,255,0.85)' }, { offset: 1, color: 'rgba(109,124,255,0.32)' }] }
+            color: '#4f5ad1'
           }
         },
         {
           name: '通过率', type: 'line', yAxisIndex: 1, smooth: true, data: execTrend.value.map(d => d.total ? Math.round(d.passed * 100 / d.total) : null),
           lineStyle: { color: C.ok, width: 2 }, itemStyle: { color: C.ok },
-          areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(52,211,153,0.28)' }, { offset: 1, color: 'rgba(52,211,153,0)' }] } }
+          areaStyle: { color: 'rgba(5,150,105,0.2)' }
         }
       ]
     })
@@ -798,19 +798,19 @@ onMounted(loadAll)
     <!-- ======== 顶部统计 ======== -->
     <div class="qa-stats">
       <div class="qa-stat-item rise" style="--d: .08s">
-        <StatCard label="测试用例" :value="caseTotal" suffix="条" :icon="Document" color="#6d7cff"
+        <StatCard label="测试用例" :value="caseTotal" suffix="条" :icon="Document" color="#4f5ad1"
                   :trend="sparkData.cases" delta="模块目录" delta-dir="up" foot="按模块 / 类型 / 优先级筛选" />
       </div>
       <div class="qa-stat-item rise" style="--d: .14s">
-        <StatCard label="测试计划" :value="plans.length" suffix="个" :icon="Calendar" color="#a78bfa"
+        <StatCard label="测试计划" :value="plans.length" suffix="个" :icon="Calendar" color="#6d4fd6"
                   :trend="sparkData.plans" :delta="planAvgPass + '%'" delta-dir="up" foot="平均通过率 · 可一键生成回归计划" />
       </div>
       <div class="qa-stat-item rise" style="--d: .20s">
-        <StatCard label="缺陷" :value="openBugs" suffix="个" :icon="Warning" color="#fb7185"
+        <StatCard label="缺陷" :value="openBugs" suffix="个" :icon="Warning" color="#dc2626"
                   :trend="sparkData.bugs" :delta="bugOpenRatio + '%'" :delta-dir="bugOpenRatio > 50 ? 'up' : 'down'" foot="未处理缺陷占比 · Jira 双向同步" />
       </div>
       <div class="qa-stat-item rise" style="--d: .26s">
-        <StatCard label="执行记录" :value="execTotal" suffix="条" :icon="VideoPlay" color="#38e1ff"
+        <StatCard label="执行记录" :value="execTotal" suffix="条" :icon="VideoPlay" color="#0891b2"
                   :trend="sparkData.exec" :delta="execPassPct + '%'" delta-dir="up" foot="近 30 日执行留痕 · 失败可回溯" />
       </div>
     </div>
@@ -891,7 +891,7 @@ onMounted(loadAll)
                   </div>
                   <div class="plan-meta">{{ p.targetVersion ?? '—' }} · {{ p.total ?? 0 }} 个用例 · 通过 {{ p.passRate }}%</div>
                   <div class="plan-progress">
-                    <div class="et-bar"><i :style="{ width: (p.progress ?? 0) + '%', background: (p.failed ?? 0) > 0 ? 'linear-gradient(90deg, #fb7185, #fbbf24)' : 'linear-gradient(90deg, #34d399, #38e1ff)' }"></i></div>
+                    <div class="et-bar"><i :style="{ width: (p.progress ?? 0) + '%', background: (p.failed ?? 0) > 0 ? '#dc2626' : '#059669' }"></i></div>
                     <span class="plan-progress-num">{{ p.progress ?? 0 }}%</span>
                   </div>
                   <div class="plan-actions">
@@ -951,10 +951,10 @@ onMounted(loadAll)
             </div>
 
             <el-row v-if="recommendation" :gutter="16" style="margin-bottom: 12px">
-              <el-col :xs="12" :sm="6"><StatCard label="推荐用例" :value="recommendation.totalCount ?? 0" color="#6d7cff" foot="版本区间推荐范围" /></el-col>
-              <el-col :xs="12" :sm="6"><StatCard label="P0 用例" :value="recommendation.p0Count ?? 0" color="#fb7185" foot="高危用例优先覆盖" /></el-col>
-              <el-col :xs="12" :sm="6"><StatCard label="回归用例" :value="recommendation.regressionCount ?? 0" color="#34d399" foot="回归风险点集合" /></el-col>
-              <el-col :xs="12" :sm="6"><StatCard label="风险等级" :value="recommendation.riskLevel ?? '—'" color="#fbbf24" foot="发布前风险评级" /></el-col>
+              <el-col :xs="12" :sm="6"><StatCard label="推荐用例" :value="recommendation.totalCount ?? 0" color="#4f5ad1" foot="版本区间推荐范围" /></el-col>
+              <el-col :xs="12" :sm="6"><StatCard label="P0 用例" :value="recommendation.p0Count ?? 0" color="#dc2626" foot="高危用例优先覆盖" /></el-col>
+              <el-col :xs="12" :sm="6"><StatCard label="回归用例" :value="recommendation.regressionCount ?? 0" color="#059669" foot="回归风险点集合" /></el-col>
+              <el-col :xs="12" :sm="6"><StatCard label="风险等级" :value="recommendation.riskLevel ?? '—'" color="#b45309" foot="发布前风险评级" /></el-col>
             </el-row>
             <el-alert v-if="recommendation" type="info" :closable="false" :title="recommendation.regressionScope" style="margin-bottom: 12px" />
 
@@ -1130,7 +1130,7 @@ onMounted(loadAll)
                       <span class="gate-check-name">{{ row.label }}</span>
                       <span class="gate-check-value">{{ row.msg }}</span>
                     </div>
-                    <div v-if="sampleDiag.error" class="gate-check-msg" style="color:#fb7185">{{ sampleDiag.error }}</div>
+                    <div v-if="sampleDiag.error" class="gate-check-msg" style="color:#dc2626">{{ sampleDiag.error }}</div>
                     <el-alert v-if="sampleDiag.ok && !sampleDiag.aiModelUsable" type="warning" :closable="false"
                               title="未配置可用 AI 模型，摘要将标记 FAILED，可在「AI 模型配置」启用后重试" style="margin-top: 8px" />
                   </div>
@@ -1373,12 +1373,12 @@ onMounted(loadAll)
     <el-dialog v-model="planReportVisible" :title="'计划报告 — ' + (planReport?.planName ?? '')" width="640px">
       <template v-if="planReport">
         <el-row :gutter="12" style="margin-bottom: 12px">
-          <el-col :span="4"><StatCard label="总数" :value="planReport.total" color="#6d7cff" /></el-col>
-          <el-col :span="4"><StatCard label="通过" :value="planReport.passed" color="#34d399" /></el-col>
-          <el-col :span="4"><StatCard label="失败" :value="planReport.failed" color="#fb7185" /></el-col>
-          <el-col :span="4"><StatCard label="阻塞" :value="planReport.blocked" color="#fbbf24" /></el-col>
-          <el-col :span="4"><StatCard label="跳过" :value="planReport.skipped" color="#a78bfa" /></el-col>
-          <el-col :span="4"><StatCard label="通过率" :value="planReport.passRate + '%'" color="#34d399" /></el-col>
+          <el-col :span="4"><StatCard label="总数" :value="planReport.total" color="#4f5ad1" /></el-col>
+          <el-col :span="4"><StatCard label="通过" :value="planReport.passed" color="#059669" /></el-col>
+          <el-col :span="4"><StatCard label="失败" :value="planReport.failed" color="#dc2626" /></el-col>
+          <el-col :span="4"><StatCard label="阻塞" :value="planReport.blocked" color="#b45309" /></el-col>
+          <el-col :span="4"><StatCard label="跳过" :value="planReport.skipped" color="#6d4fd6" /></el-col>
+          <el-col :span="4"><StatCard label="通过率" :value="planReport.passRate + '%'" color="#059669" /></el-col>
         </el-row>
         <h4 class="block-title">失败用例明细</h4>
         <el-table :data="planReport.failCases ?? []" stripe size="small" class="neo-table">
@@ -1548,10 +1548,10 @@ onMounted(loadAll)
           <span class="ai-case-title">{{ trace.requirement?.title }}</span>
         </div>
         <el-row :gutter="12" style="margin: 12px 0">
-          <el-col :span="6"><StatCard label="关联用例" :value="trace.coverage?.total ?? 0" color="#6d7cff" /></el-col>
-          <el-col :span="6"><StatCard label="通过" :value="trace.coverage?.passed ?? 0" color="#34d399" /></el-col>
-          <el-col :span="6"><StatCard label="失败" :value="trace.coverage?.failed ?? 0" color="#fb7185" /></el-col>
-          <el-col :span="6"><StatCard label="未关闭缺陷" :value="trace.coverage?.openBugs ?? 0" color="#fbbf24" /></el-col>
+          <el-col :span="6"><StatCard label="关联用例" :value="trace.coverage?.total ?? 0" color="#4f5ad1" /></el-col>
+          <el-col :span="6"><StatCard label="通过" :value="trace.coverage?.passed ?? 0" color="#059669" /></el-col>
+          <el-col :span="6"><StatCard label="失败" :value="trace.coverage?.failed ?? 0" color="#dc2626" /></el-col>
+          <el-col :span="6"><StatCard label="未关闭缺陷" :value="trace.coverage?.openBugs ?? 0" color="#b45309" /></el-col>
         </el-row>
         <el-divider content-position="left">关联用例</el-divider>
         <el-table :data="trace.testCases ?? []" stripe size="small" class="neo-table">
@@ -1633,7 +1633,7 @@ onMounted(loadAll)
               <div class="run-step-detail">
                 <div v-if="row.url" class="meta-line"><code>{{ row.method }} {{ row.url }}</code></div>
                 <div v-if="row.statusCode != null" class="meta-text">HTTP {{ row.statusCode }} · {{ row.durationMs }}ms</div>
-                <div v-for="a in row.assertions ?? []" :key="a.type + a.expected" class="meta-text" :style="{ color: a.passed ? '#34d399' : '#fb7185' }">
+                <div v-for="a in row.assertions ?? []" :key="a.type + a.expected" class="meta-text" :style="{ color: a.passed ? '#059669' : '#dc2626' }">
                   {{ a.passed ? '✓' : '✕' }} {{ assertionTypeLabel(a.type) }} → {{ a.expected }}：{{ a.message }}
                 </div>
                 <div v-if="row.responseSnippet" class="meta-text">响应: <code>{{ row.responseSnippet }}</code></div>
@@ -1647,7 +1647,7 @@ onMounted(loadAll)
           <el-table-column label="请求" min-width="200" show-overflow-tooltip><template #default="{ row }"><code>{{ stepRequestText(row) }}</code></template></el-table-column>
           <el-table-column label="状态" width="104"><template #default="{ row }"><span class="pill" :class="tagToPill(stepStatusColor(row.status))">{{ row.status }}</span></template></el-table-column>
           <el-table-column label="耗时" width="80"><template #default="{ row }">{{ row.durationMs }}ms</template></el-table-column>
-          <el-table-column label="信息" min-width="180" show-overflow-tooltip><template #default="{ row }"><span :style="{ color: row.status === 'FAILED' ? '#fb7185' : 'inherit' }">{{ stepFailInfo(row) }}</span></template></el-table-column>
+          <el-table-column label="信息" min-width="180" show-overflow-tooltip><template #default="{ row }"><span :style="{ color: row.status === 'FAILED' ? '#dc2626' : 'inherit' }">{{ stepFailInfo(row) }}</span></template></el-table-column>
         </el-table>
       </template>
     </el-dialog>
@@ -1656,17 +1656,17 @@ onMounted(loadAll)
     <el-dialog v-model="planRunDialog" :title="'计划执行 — ' + (planRunResult?.planName ?? '')" width="860px" top="5vh">
       <template v-if="planRunResult">
         <el-row :gutter="12" style="margin-bottom: 12px">
-          <el-col :span="4"><StatCard label="总用例" :value="planRunResult.total" color="#6d7cff" /></el-col>
-          <el-col :span="4"><StatCard label="通过" :value="planRunResult.passed" color="#34d399" /></el-col>
-          <el-col :span="4"><StatCard label="失败" :value="planRunResult.failed" color="#fb7185" /></el-col>
-          <el-col :span="4"><StatCard label="跳过" :value="planRunResult.skipped" color="#a78bfa" /></el-col>
-          <el-col :span="8"><StatCard label="总耗时" :value="planRunResult.durationMs + 'ms'" color="#38e1ff" /></el-col>
+          <el-col :span="4"><StatCard label="总用例" :value="planRunResult.total" color="#4f5ad1" /></el-col>
+          <el-col :span="4"><StatCard label="通过" :value="planRunResult.passed" color="#059669" /></el-col>
+          <el-col :span="4"><StatCard label="失败" :value="planRunResult.failed" color="#dc2626" /></el-col>
+          <el-col :span="4"><StatCard label="跳过" :value="planRunResult.skipped" color="#6d4fd6" /></el-col>
+          <el-col :span="8"><StatCard label="总耗时" :value="planRunResult.durationMs + 'ms'" color="#0891b2" /></el-col>
         </el-row>
         <el-table :data="planRunResult.results" size="small" class="neo-table" v-if="planRunResult.results.length">
           <el-table-column type="expand">
             <template #default="{ row }">
               <div class="run-step-detail">
-                <div v-if="row.reason" class="meta-text" style="color:#fbbf24">{{ row.reason }}</div>
+                <div v-if="row.reason" class="meta-text" style="color:#b45309">{{ row.reason }}</div>
                 <el-table :data="row.steps ?? []" size="small">
                   <el-table-column label="步骤" min-width="140">
                     <template #default="{ row: sr }"><span class="step-name">{{ sr.name || stepActionLabel(sr.type) }}</span></template>
@@ -1674,7 +1674,7 @@ onMounted(loadAll)
                   <el-table-column label="请求" min-width="200" show-overflow-tooltip><template #default="{ row: sr }"><code>{{ stepRequestText(sr) }}</code></template></el-table-column>
                   <el-table-column label="状态" width="104"><template #default="{ row: sr }"><span class="pill" :class="tagToPill(stepStatusColor(sr.status))">{{ sr.status }}</span></template></el-table-column>
                   <el-table-column label="耗时" width="80"><template #default="{ row: sr }">{{ sr.durationMs }}ms</template></el-table-column>
-                  <el-table-column label="信息" min-width="180" show-overflow-tooltip><template #default="{ row: sr }"><span :style="{ color: sr.status === 'FAILED' ? '#fb7185' : 'inherit' }">{{ stepFailInfo(sr) }}</span></template></el-table-column>
+                  <el-table-column label="信息" min-width="180" show-overflow-tooltip><template #default="{ row: sr }"><span :style="{ color: sr.status === 'FAILED' ? '#dc2626' : 'inherit' }">{{ stepFailInfo(sr) }}</span></template></el-table-column>
                 </el-table>
               </div>
             </template>
@@ -1682,7 +1682,7 @@ onMounted(loadAll)
           <el-table-column prop="title" label="用例" min-width="220" show-overflow-tooltip />
           <el-table-column label="结果" width="104"><template #default="{ row }"><span class="pill" :class="tagToPill(stepStatusColor(row.verdict))">{{ row.verdict }}</span></template></el-table-column>
           <el-table-column label="耗时" width="90"><template #default="{ row }">{{ row.durationMs }}ms</template></el-table-column>
-          <el-table-column label="说明" min-width="160" show-overflow-tooltip><template #default="{ row }"><span :style="{ color: row.reason ? '#fbbf24' : 'inherit' }">{{ row.reason ?? '' }}</span></template></el-table-column>
+          <el-table-column label="说明" min-width="160" show-overflow-tooltip><template #default="{ row }"><span :style="{ color: row.reason ? '#b45309' : 'inherit' }">{{ row.reason ?? '' }}</span></template></el-table-column>
         </el-table>
         <el-empty v-else description="计划中没有用例" :image-size="60" />
       </template>
@@ -1703,15 +1703,8 @@ onMounted(loadAll)
   border-radius: 18px;
   margin-top: 18px;
   overflow: hidden;
-  background: linear-gradient(120deg, rgba(109, 124, 255, 0.14), rgba(167, 139, 250, 0.08) 45%, rgba(56, 225, 255, 0.09));
-  border: 1px solid rgba(109, 124, 255, 0.25);
-}
-.qa-hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(500px 180px at 85% -30%, rgba(56, 225, 255, 0.18), transparent 60%);
-  pointer-events: none;
+  background: var(--et-card-solid);
+  border: 1px solid var(--et-border);
 }
 .qa-hero-title {
   margin: 0;
@@ -1795,13 +1788,11 @@ onMounted(loadAll)
 .tab-content :deep(.el-alert) {
   border-radius: 12px;
   border: 1px solid var(--et-border);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
-.tab-content :deep(.el-alert--success) { background: rgba(52, 211, 153, 0.1); color: var(--et-text); }
-.tab-content :deep(.el-alert--error) { background: rgba(251, 113, 133, 0.1); color: var(--et-text); }
-.tab-content :deep(.el-alert--warning) { background: rgba(251, 191, 36, 0.1); color: var(--et-text); }
-.tab-content :deep(.el-alert--info) { background: rgba(109, 124, 255, 0.1); color: var(--et-text); }
+.tab-content :deep(.el-alert--success) { background: rgba(5, 150, 105, 0.1); color: var(--et-text); }
+.tab-content :deep(.el-alert--error) { background: rgba(220, 38, 38, 0.1); color: var(--et-text); }
+.tab-content :deep(.el-alert--warning) { background: rgba(180, 83, 9, 0.1); color: var(--et-text); }
+.tab-content :deep(.el-alert--info) { background: rgba(79, 90, 209, 0.1); color: var(--et-text); }
 .tab-content :deep(.el-alert__title) { color: inherit; font-weight: 600; }
 .tab-content :deep(.el-alert__description) { color: inherit; }
 
@@ -1818,8 +1809,6 @@ onMounted(loadAll)
   border-radius: 14px;
   padding: 14px 12px;
   background: var(--et-bg-muted);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 .tree-head {
   display: flex;
@@ -1838,12 +1827,12 @@ onMounted(loadAll)
   align-items: center;
   justify-content: center;
   color: var(--et-primary-light);
-  background: rgba(109, 124, 255, 0.12);
+  background: rgba(79, 90, 209, 0.12);
   flex-shrink: 0;
 }
 .case-tree :deep(.el-tree) {
   background: transparent;
-  --el-tree-node-hover-bg-color: rgba(109, 124, 255, 0.08);
+  --el-tree-node-hover-bg-color: rgba(79, 90, 209, 0.08);
   --el-tree-text-color: var(--et-text-secondary);
   --el-tree-node-expanded-bg-color: transparent;
   color: var(--et-text-secondary);
@@ -1853,10 +1842,10 @@ onMounted(loadAll)
   border-radius: 8px;
 }
 .case-tree :deep(.el-tree-node__content:hover) {
-  background: rgba(109, 124, 255, 0.08);
+  background: rgba(79, 90, 209, 0.08);
 }
 .case-tree :deep(.el-tree-node.is-current > .el-tree-node__content) {
-  background: linear-gradient(90deg, rgba(109, 124, 255, 0.16), rgba(109, 124, 255, 0.05));
+  background: rgba(79, 90, 209, 0.16);
   color: var(--et-text);
 }
 .case-tree :deep(.el-tree-node__expand-icon) {
@@ -1885,12 +1874,10 @@ onMounted(loadAll)
   flex-shrink: 0;
 }
 .node-mod {
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b));
-  box-shadow: 0 0 8px var(--et-glow);
+  background: var(--et-primary);
 }
 .node-case {
-  background: var(--et-grad-c);
-  box-shadow: 0 0 8px rgba(56, 225, 255, 0.5);
+  background: #0891b2;
 }
 .tree-count {
   font-size: 10.5px;
@@ -1922,14 +1909,13 @@ onMounted(loadAll)
   background: color-mix(in srgb, currentColor 12%, transparent);
   border-radius: 8px;
 }
-/* 提升操作按钮文字可读性（主色/成功/危险细化成更亮的取值） */
-.ops-btn.el-button--primary { color: #a8b4ff; }
-.ops-btn.el-button--success { color: #34d399; }
-.ops-btn.el-button--danger  { color: #fb7185; }
+/* 操作按钮文字可读性 */
+.ops-btn.el-button--primary { color: #5f6bd8; }
+.ops-btn.el-button--success { color: #059669; }
+.ops-btn.el-button--danger  { color: #dc2626; }
 .ops-btn.el-button--info    { color: var(--et-text-secondary); }
 .ops-btn:hover {
   background: color-mix(in srgb, currentColor 22%, transparent);
-  box-shadow: 0 0 12px var(--et-glow);
   filter: brightness(1.15);
 }
 .table-pager {
@@ -1948,8 +1934,6 @@ onMounted(loadAll)
   padding: 16px 18px;
   background: var(--et-card-bg);
   border: 1px solid var(--et-border);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
   overflow: hidden;
 }
@@ -1960,10 +1944,7 @@ onMounted(loadAll)
   left: 18px;
   right: 18px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
-}
-[data-theme="light"] .plan-card-box::before {
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
+  background: var(--et-border);
 }
 .plan-card-box:hover {
   transform: translateY(-3px);
@@ -2069,13 +2050,11 @@ onMounted(loadAll)
 }
 .ic-ok {
   color: var(--et-ok);
-  background: rgba(52, 211, 153, 0.13);
-  box-shadow: 0 0 10px rgba(52, 211, 153, 0.25);
+  background: rgba(5, 150, 105, 0.13);
 }
 .ic-bad {
   color: var(--et-danger);
-  background: rgba(251, 113, 133, 0.13);
-  box-shadow: 0 0 10px rgba(251, 113, 133, 0.2);
+  background: rgba(220, 38, 38, 0.13);
 }
 .diag-empty {
   color: var(--et-text-muted);
@@ -2099,8 +2078,6 @@ onMounted(loadAll)
   border-radius: 14px;
   padding: 14px 16px 10px;
   background: var(--et-card-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   height: 100%;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -2145,11 +2122,11 @@ onMounted(loadAll)
   border-radius: 50%;
   background: currentColor;
 }
-.pill-ok { color: var(--et-ok); background: rgba(52, 211, 153, 0.13); }
-.pill-danger { color: var(--et-danger); background: rgba(251, 113, 133, 0.13); }
-.pill-warn { color: var(--et-warn); background: rgba(251, 191, 36, 0.13); }
+.pill-ok { color: var(--et-ok); background: rgba(5, 150, 105, 0.13); }
+.pill-danger { color: var(--et-danger); background: rgba(220, 38, 38, 0.13); }
+.pill-warn { color: var(--et-warn); background: rgba(180, 83, 9, 0.13); }
 .pill-muted { color: var(--et-text-muted); background: var(--et-bg-muted); }
-.pill-cyan { color: var(--et-grad-c); background: rgba(56, 225, 255, 0.12); }
+.pill-cyan { color: #0891b2; background: rgba(8, 145, 178, 0.12); }
 
 /* 严重度徽章 */
 .sev {
@@ -2162,9 +2139,9 @@ onMounted(loadAll)
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.3px;
 }
-.sev-0 { color: var(--et-danger); background: rgba(251, 113, 133, 0.14); }
-.sev-1 { color: var(--et-warn); background: rgba(251, 191, 36, 0.14); }
-.sev-2 { color: var(--et-primary-light); background: rgba(109, 124, 255, 0.14); }
+.sev-0 { color: var(--et-danger); background: rgba(220, 38, 38, 0.14); }
+.sev-1 { color: var(--et-warn); background: rgba(180, 83, 9, 0.14); }
+.sev-2 { color: var(--et-primary-light); background: rgba(79, 90, 209, 0.14); }
 .sev-3 { color: var(--et-text-muted); background: var(--et-bg-muted); }
 
 /* 类型标签 */
@@ -2205,7 +2182,7 @@ onMounted(loadAll)
   width: 3px;
   height: 12px;
   border-radius: 3px;
-  background: linear-gradient(180deg, var(--et-grad-a), var(--et-grad-c));
+  background: var(--et-primary);
 }
 .qa-alert {
   border-radius: 12px;
@@ -2230,8 +2207,8 @@ onMounted(loadAll)
 }
 .commit-sha {
   font-size: 11px;
-  color: var(--et-grad-c);
-  background: rgba(56, 225, 255, 0.1);
+  color: #0891b2;
+  background: rgba(8, 145, 178, 0.1);
   border-radius: 6px;
   padding: 2px 6px;
 }
@@ -2276,8 +2253,8 @@ onMounted(loadAll)
 .http-badge {
   font-size: 10px;
   font-weight: 800;
-  color: var(--et-grad-c);
-  background: rgba(56, 225, 255, 0.12);
+  color: #0891b2;
+  background: rgba(8, 145, 178, 0.12);
   border-radius: 6px;
   padding: 2px 7px;
   font-family: inherit;
@@ -2364,7 +2341,7 @@ onMounted(loadAll)
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: rgba(109, 124, 255, 0.14);
+  background: rgba(79, 90, 209, 0.14);
   color: var(--et-primary-light);
   font-size: 11px;
   font-weight: 700;

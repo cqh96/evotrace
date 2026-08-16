@@ -52,12 +52,12 @@ function nodeTag(node: TraceNode) {
 .step-col { display: flex; flex-direction: column; }
 .step { display: flex; gap: 12px; }
 .rail { display: flex; flex-direction: column; align-items: center; width: 14px; flex-shrink: 0; }
-.dot { width: 12px; height: 12px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; box-shadow: 0 0 8px currentColor; }
-.dot.requirement { background: #6d7cff; color: #6d7cff; }
-.dot.change_event { background: #38e1ff; color: #38e1ff; }
-.dot.release { background: #34d399; color: #34d399; }
-.dot.bug { background: #fb7185; color: #fb7185; }
-.dot.test_case { background: #a78bfa; color: #a78bfa; }
+.dot { width: 12px; height: 12px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; box-shadow: var(--et-shadow-sm); }
+.dot.requirement { background: #4f5ad1; color: #4f5ad1; }
+.dot.change_event { background: #0891b2; color: #0891b2; }
+.dot.release { background: #059669; color: #059669; }
+.dot.bug { background: #dc2626; color: #dc2626; }
+.dot.test_case { background: #6d4fd6; color: #6d4fd6; }
 .line { flex: 1; width: 2px; background: var(--et-border); margin: 2px 0; }
 .node {
   flex: 1; display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-bottom: 6px;
@@ -66,7 +66,7 @@ function nodeTag(node: TraceNode) {
   transition: all 0.15s; text-align: left;
 }
 .node:hover { border-color: var(--et-hover-border); color: var(--et-text); transform: translateX(3px); }
-.node-tag { font-size: 10px; font-weight: 700; color: var(--et-grad-c); padding: 2px 7px; border-radius: 6px; background: rgba(56, 225, 255, 0.1); flex-shrink: 0; letter-spacing: 0.4px; }
+.node-tag { font-size: 10px; font-weight: 700; color: #0e7490; padding: 2px 7px; border-radius: 6px; background: rgba(8, 145, 178, 0.1); flex-shrink: 0; letter-spacing: 0.4px; }
 .node-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .empty { display: flex; align-items: center; gap: 8px; color: var(--et-text-muted); font-size: 12.5px; padding: 18px 4px; }
 </style>

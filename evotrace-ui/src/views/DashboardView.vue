@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
-import { DataAnalysis, Collection, EditPen, Promotion, ChatDotRound, Checked, Timer } from '@element-plus/icons-vue'
+import { DataAnalysis, Collection, EditPen, Promotion, ChatDotRound, Checked, Refresh, Timer } from '@element-plus/icons-vue'
 import PageCard from '../components/PageCard.vue'
 import StatCard from '../components/StatCard.vue'
 import { dashboardApi, type DashboardStats, type RecentRelease, type TrendDay } from '../api'
@@ -14,13 +14,13 @@ const trendData = ref<TrendDay[]>([])
 const loading = ref(true)
 
 const statCards = [
-  { label: '接入项目', key: 'projectCount' as const, icon: DataAnalysis, color: '#6d7cff',
+  { label: '接入项目', key: 'projectCount' as const, icon: DataAnalysis, color: '#4f5ad1',
     foot: '全链路演化追踪' },
-  { label: '应用/服务', key: 'appCount' as const, icon: Collection, color: '#34d399',
+  { label: '应用/服务', key: 'appCount' as const, icon: Collection, color: '#059669',
     foot: '覆盖业务服务模块' },
-  { label: '今日变更', key: 'todayChanges' as const, icon: EditPen, color: '#fbbf24',
+  { label: '今日变更', key: 'todayChanges' as const, icon: EditPen, color: '#b45309',
     foot: 'SDK 实时采集同步' },
-  { label: '已发布版本', key: 'releaseCount' as const, icon: Promotion, color: '#a78bfa',
+  { label: '已发布版本', key: 'releaseCount' as const, icon: Promotion, color: '#6d4fd6',
     foot: '本月发布记录' }
 ]
 
@@ -65,7 +65,7 @@ function renderTrend(data: TrendDay[]) {
       backgroundColor: v.card,
       borderColor: v.border,
       textStyle: { color: v.text, fontSize: 12 },
-      axisPointer: { lineStyle: { color: 'rgba(109,124,255,0.5)' } }
+      axisPointer: { lineStyle: { color: 'rgba(79,90,209,0.5)' } }
     },
     legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8,
       textStyle: { color: '#5c6a8a', fontSize: 12 } },
@@ -84,19 +84,17 @@ function renderTrend(data: TrendDay[]) {
       {
         name: '变更数', type: 'line', smooth: true, symbol: 'circle', symbolSize: 7,
         data: data.map((d) => d.changes),
-        lineStyle: { color: '#6d7cff', width: 2.5 },
-        itemStyle: { color: '#6d7cff', borderColor: v.card, borderWidth: 2 },
+        lineStyle: { color: '#4f5ad1', width: 2.5 },
+        itemStyle: { color: '#4f5ad1', borderColor: v.card, borderWidth: 2 },
         areaStyle: {
-          color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
-            colorStops: [{ offset: 0, color: 'rgba(109,124,255,0.28)' }, { offset: 1, color: 'rgba(109,124,255,0.02)' }] }
+          color: 'rgba(79,90,209,0.2)'
         }
       },
       {
         name: '发布数', type: 'bar', barWidth: 16,
         data: data.map((d) => d.releases),
         itemStyle: {
-          color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
-            colorStops: [{ offset: 0, color: 'rgba(56,225,255,0.85)' }, { offset: 1, color: 'rgba(14,165,233,0.35)' }] },
+          color: 'rgba(8,145,178,0.85)',
           borderRadius: [4, 4, 0, 0]
         }
       }
@@ -138,7 +136,7 @@ onMounted(() => {
     <section class="et-hero rise" style="--d:.02s">
       <div class="hero-inner">
         <div>
-          <h2>{{ greeting }}，<span class="et-grad-text">{{ username }}</span> 👋</h2>
+          <h2>{{ greeting }}，<span>{{ username }}</span> 👋</h2>
           <p class="et-hero-sub">{{ today }} · 近 7 日共 {{ weekChanges }} 次变更</p>
         </div>
         <div class="hero-chips">
@@ -147,11 +145,11 @@ onMounted(() => {
             SDK 实时采集
           </span>
           <span class="chip-mini">
-            <el-icon :size="13" color="var(--et-grad-a)"><DataAnalysis /></el-icon>
+            <el-icon :size="13" color="var(--et-primary)"><DataAnalysis /></el-icon>
             接入项目 <b>{{ stats.projectCount }}</b> 个
           </span>
           <span class="chip-mini">
-            <el-icon :size="13" color="var(--et-grad-c)"><Promotion /></el-icon>
+            <el-icon :size="13" color="#0e7490"><Promotion /></el-icon>
             已发布 <b>{{ stats.releaseCount }}</b> 个版本
           </span>
         </div>
@@ -164,6 +162,9 @@ onMounted(() => {
           </button>
           <button class="btn btn-ghost" @click="router.push('/qa')">
             <el-icon :size="15"><ChatDotRound /></el-icon>AI 问答
+          </button>
+          <button class="btn btn-ghost" @click="load">
+            <el-icon :size="15"><Refresh /></el-icon>刷新
           </button>
         </div>
       </div>
@@ -256,10 +257,10 @@ onMounted(() => {
 .btn:active { transform: scale(0.97); }
 .btn-primary {
   color: #fff;
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b));
-  box-shadow: 0 8px 24px var(--et-glow);
+  background: var(--et-primary);
+  box-shadow: var(--et-shadow-sm);
 }
-.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px var(--et-glow); }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: var(--et-shadow); }
 .btn-ghost {
   color: var(--et-text-secondary);
   border: 1px solid var(--et-border);
@@ -271,8 +272,8 @@ onMounted(() => {
 .lg { display: inline-flex; align-items: center; gap: 6px; }
 .lg-line { width: 14px; height: 3px; border-radius: 2px; }
 .lg-dot { width: 9px; height: 9px; border-radius: 50%; }
-.lg-a { background: linear-gradient(90deg, #6d7cff, #a78bfa); }
-.lg-b { background: linear-gradient(135deg, #38e1ff, #0ea5e9); }
+.lg-a { background: #4f5ad1; }
+.lg-b { background: #0891b2; }
 
 .release-item { display: flex; align-items: flex-start; gap: 12px; padding: 13px 2px; border-bottom: 1px solid var(--et-border); }
 .release-item:first-child { padding-top: 4px; }
@@ -287,9 +288,9 @@ onMounted(() => {
   letter-spacing: 0.3px;
   font-variant-numeric: tabular-nums;
 }
-.v1 { background: linear-gradient(135deg, #6d7cff, #8b5cf6); }
-.v2 { background: linear-gradient(135deg, #0ea5e9, #38e1ff); color: #062233; }
-.v3 { background: linear-gradient(135deg, #f472b6, #a78bfa); }
+.v1 { background: #4f5ad1; }
+.v2 { background: #0891b2; color: #fff; }
+.v3 { background: #d6336c; }
 .rel-main { flex: 1; min-width: 0; }
 .rel-top { display: flex; align-items: center; gap: 8px; }
 .rel-proj { font-size: 13px; font-weight: 700; }

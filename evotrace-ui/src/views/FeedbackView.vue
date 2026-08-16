@@ -81,7 +81,7 @@ async function ignore(id: number) {
 }
 
 const statusLabels: Record<string, string> = { NEW: '待处理', ANALYZED: '已分析', CONVERTED: '已转换', IGNORED: '已忽略' }
-const statusColors: Record<string, string> = { NEW: '#fbbf24', ANALYZED: '#38e1ff', CONVERTED: '#34d399', IGNORED: '#64748b' }
+const statusColors: Record<string, string> = { NEW: '#b45309', ANALYZED: '#0891b2', CONVERTED: '#059669', IGNORED: '#64748b' }
 
 onMounted(load)
 </script>
@@ -215,32 +215,32 @@ onMounted(load)
   padding: 8px 14px; border-radius: 20px; border: 1px solid transparent;
   font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.18s;
 }
-.ops-btn.primary { background: rgba(109, 124, 255, 0.14); color: #a8b4ff; }
-.ops-btn.primary:hover { background: rgba(109, 124, 255, 0.28); box-shadow: 0 0 12px rgba(109, 124, 255, 0.3); }
-.ops-btn.success { background: rgba(52, 211, 153, 0.14); color: #34d399; }
-.ops-btn.success:hover { background: rgba(52, 211, 153, 0.28); box-shadow: 0 0 12px rgba(52, 211, 153, 0.3); }
-.ops-btn.danger { background: rgba(251, 113, 133, 0.14); color: #fb7185; }
-.ops-btn.danger:hover { background: rgba(251, 113, 133, 0.28); box-shadow: 0 0 12px rgba(251, 113, 133, 0.3); }
+.ops-btn.primary { background: rgba(79, 90, 209, 0.14); color: #5f6bd8; }
+.ops-btn.primary:hover { background: rgba(79, 90, 209, 0.28); }
+.ops-btn.success { background: rgba(5, 150, 105, 0.14); color: #059669; }
+.ops-btn.success:hover { background: rgba(5, 150, 105, 0.28); }
+.ops-btn.danger { background: rgba(220, 38, 38, 0.14); color: #dc2626; }
+.ops-btn.danger:hover { background: rgba(220, 38, 38, 0.28); }
 .ops { display: flex; gap: 6px; }
 .src {
   font-family: ui-monospace, monospace; font-size: 11px; color: var(--et-text-secondary);
   padding: 3px 8px; border-radius: 6px; background: var(--et-bg-muted); border: 1px solid var(--et-border);
 }
 .status { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
-.ai-hint { font-size: 12px; color: var(--et-grad-c); }
-.conv { font-size: 12px; color: #34d399; font-weight: 600; }
-.conv.bug { color: #fb7185; }
+.ai-hint { font-size: 12px; color: #0891b2; }
+.conv { font-size: 12px; color: #059669; font-weight: 600; }
+.conv.bug { color: #dc2626; }
 .muted { color: var(--et-text-muted); font-size: 12.5px; }
 .ana { display: flex; flex-direction: column; gap: 12px; }
 .ana-type {
   display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
   font-size: 14px; font-weight: 700; padding: 8px 14px; border-radius: 12px;
 }
-.ana-type.bug { color: #fb7185; background: rgba(251, 113, 133, 0.12); }
-.ana-type.req { color: #34d399; background: rgba(52, 211, 153, 0.12); }
+.ana-type.bug { color: #dc2626; background: rgba(220, 38, 38, 0.12); }
+.ana-type.req { color: #059669; background: rgba(5, 150, 105, 0.12); }
 .ana-row { display: flex; gap: 12px; font-size: 13px; line-height: 1.6; }
 .ana-row .k { flex-shrink: 0; width: 48px; color: var(--et-text-muted); }
 .ana-foot { font-size: 11.5px; color: var(--et-text-muted); }
 .prio { font-weight: 700; }
-.prio.p0 { color: #fb7185; } .prio.p1 { color: #f97316; } .prio.p2 { color: #eab308; } .prio.p3 { color: #64748b; }
+.prio.p0 { color: #dc2626; } .prio.p1 { color: #c2410c; } .prio.p2 { color: #b45309; } .prio.p3 { color: #64748b; }
 </style>

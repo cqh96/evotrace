@@ -42,9 +42,9 @@ const catLabel = (c: string) => ({ BUG: '缺陷', SECURITY: '安全', PERFORMANC
 
 const scoreColor = computed(() => {
   const s = overview.value.avgScore
-  if (s >= 70) return '#34d399'
-  if (s >= 50) return '#fbbf24'
-  return '#fb7185'
+  if (s >= 70) return '#059669'
+  if (s >= 50) return '#b45309'
+  return '#dc2626'
 })
 
 // ---------- 展示辅助（不影响业务逻辑） ----------
@@ -53,7 +53,7 @@ const verdictMini = (v: string) => ({ PASS: 'verdict-pass', WARNING: 'verdict-wa
 const sevMini = (s: string) => ({ CRITICAL: 'tag-crit', WARNING: 'tag-warn', INFO: 'tag-info', SUGGESTION: 'tag-sug' } as any)[s] || 'tag-info'
 const ringStyle = computed(() => {
   const s = Math.max(0, Math.min(100, overview.value.avgScore || 0))
-  return { background: `conic-gradient(${scoreColor.value} ${s * 3.6}deg, rgba(147, 160, 189, 0.22) ${s * 3.6}deg 360deg)` }
+  return { background: `conic-gradient(${scoreColor.value} ${s * 3.6}deg, rgba(107, 114, 128, 0.2) ${s * 3.6}deg 360deg)` }
 })
 
 async function loadOverview() {
@@ -183,7 +183,7 @@ onMounted(async () => { await Promise.all([loadOverview(), loadReviews(), loadSt
     <!-- 页面 Hero -->
     <section class="et-hero hero rise" style="--d:.02s">
       <div class="hero-left">
-        <h2><span class="et-grad-text">AI 代码审查</span></h2>
+        <h2>AI 代码审查</h2>
         <div class="et-hero-sub">对 CODE_COMMIT 事件自动生成审查报告，识别缺陷、安全与性能风险，并附修改建议</div>
         <div class="hero-chips">
           <div class="chip-mini"><span class="et-pulse"></span>审查服务运行中</div>
@@ -232,10 +232,10 @@ onMounted(async () => { await Promise.all([loadOverview(), loadReviews(), loadSt
 
     <!-- 总览统计 -->
     <el-row :gutter="16" class="stats-row">
-      <el-col :xs="12" :sm="6"><StatCard label="总审查" :value="overview.totalReviews" :icon="DataAnalysis" color="#6d7cff" class="rise" style="--d:.12s" /></el-col>
-      <el-col :xs="12" :sm="6"><StatCard label="AI 生成代码" :value="overview.aiGenerated" :icon="Refresh" color="#a78bfa" :suffix="`${overview.aiRatio}%`" class="rise" style="--d:.16s" /></el-col>
-      <el-col :xs="12" :sm="6"><StatCard label="审查通过率" :value="overview.passCount" :icon="Checked" color="#34d399" class="rise" style="--d:.20s" /></el-col>
-      <el-col :xs="12" :sm="6"><StatCard label="严重风险" :value="overview.criticalFindings" :icon="WarningFilled" color="#fb7185" class="rise" style="--d:.24s" /></el-col>
+      <el-col :xs="12" :sm="6"><StatCard label="总审查" :value="overview.totalReviews" :icon="DataAnalysis" color="#4f5ad1" class="rise" style="--d:.12s" /></el-col>
+      <el-col :xs="12" :sm="6"><StatCard label="AI 生成代码" :value="overview.aiGenerated" :icon="Refresh" color="#6d4fd6" :suffix="`${overview.aiRatio}%`" class="rise" style="--d:.16s" /></el-col>
+      <el-col :xs="12" :sm="6"><StatCard label="审查通过率" :value="overview.passCount" :icon="Checked" color="#059669" class="rise" style="--d:.20s" /></el-col>
+      <el-col :xs="12" :sm="6"><StatCard label="严重风险" :value="overview.criticalFindings" :icon="WarningFilled" color="#dc2626" class="rise" style="--d:.24s" /></el-col>
     </el-row>
 
     <!-- AI 来源分布 -->
@@ -243,7 +243,7 @@ onMounted(async () => { await Promise.all([loadOverview(), loadReviews(), loadSt
       <div class="source-bar">
         <div v-for="[src, count] in aiSources" :key="src" class="source-item">
           <span class="source-name">{{ src }}</span>
-          <el-progress :percentage="Math.round(count/reviews.length*100)" :stroke-width="12" :color="{ claude: '#6d7cff', copilot: '#34d399', cursor: '#fbbf24', chatgpt: '#34d399', gemini: '#4285f4' }[src]||'#94a3b8'" style="flex:1;margin:0 12px" />
+          <el-progress :percentage="Math.round(count/reviews.length*100)" :stroke-width="12" :color="{ claude: '#4f5ad1', copilot: '#059669', cursor: '#b45309', chatgpt: '#059669', gemini: '#4285f4' }[src]||'#94a3b8'" style="flex:1;margin:0 12px" />
           <span class="source-count">{{ count }}</span>
         </div>
       </div>
@@ -327,7 +327,7 @@ onMounted(async () => { await Promise.all([loadOverview(), loadReviews(), loadSt
               <span class="et-mini-tag tag-info">{{ selectedReview.infoCount }} 提示</span>
             </div>
             <div v-if="!selectedReview.findings?.length" class="no-finding">
-              <el-icon :size="15" color="#34d399"><Checked /></el-icon> 未发现问题，代码质量良好
+              <el-icon :size="15" color="#059669"><Checked /></el-icon> 未发现问题，代码质量良好
             </div>
             <div v-for="f in selectedReview.findings" :key="f.id" class="finding-item" :class="f.severity.toLowerCase()">
               <div class="finding-head">
@@ -347,7 +347,7 @@ onMounted(async () => { await Promise.all([loadOverview(), loadReviews(), loadSt
               <div v-if="f.suggestion" class="finding-sugg">💡 {{ f.suggestion }}</div>
               <div class="finding-act">
                 <el-button v-if="!f.acknowledged" size="small" type="primary" text @click="acknowledgeFinding(f.id)">确认问题</el-button>
-                <span v-else class="ack-badge"><el-icon :size="12" color="#34d399"><Checked /></el-icon> 已确认</span>
+                <span v-else class="ack-badge"><el-icon :size="12" color="#059669"><Checked /></el-icon> 已确认</span>
               </div>
             </div>
           </div>
@@ -422,7 +422,6 @@ onMounted(async () => { await Promise.all([loadOverview(), loadReviews(), loadSt
   width: 96px; height: 96px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 18px rgba(109, 124, 255, 0.35));
 }
 .score-ring-inner {
   width: 74px; height: 74px; border-radius: 50%;
@@ -459,7 +458,7 @@ onMounted(async () => { await Promise.all([loadOverview(), loadReviews(), loadSt
 }
 .review-item:last-child { margin-bottom: 0; }
 .review-item:hover { background: var(--et-bg-muted); border-color: var(--et-border); }
-.review-item.selected { background: var(--et-primary-bg); border-color: rgba(109, 124, 255, 0.35); }
+.review-item.selected { background: var(--et-primary-bg); border-color: rgba(79, 90, 209, 0.35); }
 .ri-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
 .ri-event { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 12px; color: var(--et-text-secondary); }
 .ri-right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
@@ -467,16 +466,16 @@ onMounted(async () => { await Promise.all([loadOverview(), loadReviews(), loadSt
 .ri-score.pass { color: var(--et-ok); } .ri-score.warn { color: var(--et-warn); } .ri-score.fail { color: var(--et-danger); }
 
 /* 结论迷你标签 */
-.verdict-pass { color: var(--et-ok); background: rgba(52, 211, 153, 0.13); }
-.verdict-warn { color: var(--et-warn); background: rgba(251, 191, 36, 0.13); }
-.verdict-fail { color: var(--et-danger); background: rgba(251, 113, 133, 0.14); }
-.verdict-info { color: var(--et-primary-light); background: rgba(109, 124, 255, 0.13); }
+.verdict-pass { color: var(--et-ok); background: rgba(5, 150, 105, 0.13); }
+.verdict-warn { color: var(--et-warn); background: rgba(180, 83, 9, 0.13); }
+.verdict-fail { color: var(--et-danger); background: rgba(220, 38, 38, 0.14); }
+.verdict-info { color: var(--et-primary-light); background: rgba(79, 90, 209, 0.13); }
 
 /* 严重级别迷你标签 */
-.tag-crit { color: #fb7185; background: rgba(251, 113, 133, 0.14); }
-.tag-warn { color: #fbbf24; background: rgba(251, 191, 36, 0.13); }
-.tag-info { color: #a5b0ff; background: rgba(109, 124, 255, 0.13); }
-.tag-sug { color: #c4b5fd; background: rgba(167, 139, 250, 0.15); }
+.tag-crit { color: #dc2626; background: rgba(220, 38, 38, 0.14); }
+.tag-warn { color: #b45309; background: rgba(180, 83, 9, 0.13); }
+.tag-info { color: #5f6bd8; background: rgba(79, 90, 209, 0.13); }
+.tag-sug { color: #6d4fd6; background: rgba(109, 79, 214, 0.15); }
 
 /* ========== 审查报告 ========== */
 .report-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
@@ -494,7 +493,7 @@ onMounted(async () => { await Promise.all([loadOverview(), loadReviews(), loadSt
   display: inline-flex; align-items: center; gap: 8px;
   color: var(--et-ok); font-size: 13px; font-weight: 600;
   padding: 10px 14px; border-radius: 10px;
-  background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.25);
+  background: rgba(5, 150, 105, 0.1); border: 1px solid rgba(5, 150, 105, 0.25);
 }
 
 .finding-item {
@@ -504,9 +503,9 @@ onMounted(async () => { await Promise.all([loadOverview(), loadReviews(), loadSt
 .finding-item::before {
   content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 3px;
 }
-.finding-item.critical::before { background: linear-gradient(180deg, #fb7185, #f43f5e); }
-.finding-item.warning::before { background: linear-gradient(180deg, #fbbf24, #f97316); }
-.finding-item.info::before, .finding-item.suggestion::before { background: linear-gradient(180deg, #6d7cff, #38e1ff); }
+.finding-item.critical::before { background: #dc2626; }
+.finding-item.warning::before { background: #d97706; }
+.finding-item.info::before, .finding-item.suggestion::before { background: #4f5ad1; }
 
 .finding-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
 .finding-file { font-size: 12px; color: var(--et-text-muted); font-family: 'SF Mono', Menlo, Consolas, monospace; }
@@ -517,16 +516,16 @@ onMounted(async () => { await Promise.all([loadOverview(), loadReviews(), loadSt
 .code-block { background: #0d1226; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 10px; overflow: hidden; margin-bottom: 8px; }
 .code-head { display: flex; align-items: center; gap: 6px; padding: 7px 12px; background: rgba(255, 255, 255, 0.03); border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
 .cb-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.18); }
-.cb-dot:nth-child(1) { background: #fb7185; }
-.cb-dot:nth-child(2) { background: #fbbf24; }
-.cb-dot:nth-child(3) { background: #34d399; }
+.cb-dot:nth-child(1) { background: #dc2626; }
+.cb-dot:nth-child(2) { background: #b45309; }
+.cb-dot:nth-child(3) { background: #059669; }
 .cb-name { margin-left: 6px; font-size: 10.5px; color: rgba(255, 255, 255, 0.4); font-family: 'SF Mono', Menlo, Consolas, monospace; letter-spacing: 0.4px; }
 .code-block pre { margin: 0; padding: 12px 14px; overflow-x: auto; }
 .code-block code { font-family: 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-size: 12px; line-height: 1.7; color: #dbe4ff; white-space: pre; }
 
 .finding-sugg {
-  font-size: 12.5px; color: var(--et-grad-b); line-height: 1.55;
-  background: rgba(167, 139, 250, 0.08); border: 1px solid rgba(167, 139, 250, 0.15);
+  font-size: 12.5px; color: #6d4fd6; line-height: 1.55;
+  background: rgba(109, 79, 214, 0.08); border: 1px solid rgba(109, 79, 214, 0.15);
   border-radius: 8px; padding: 8px 10px;
 }
 .finding-act { margin-top: 8px; }

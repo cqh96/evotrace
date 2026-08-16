@@ -2,7 +2,7 @@
 import { onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { storeToRefs } from 'pinia'
-import { TrendCharts, WarningFilled, DataAnalysis } from '@element-plus/icons-vue'
+import { TrendCharts, WarningFilled, DataAnalysis, Refresh } from '@element-plus/icons-vue'
 import FilterBar from '../components/FilterBar.vue'
 import FileHistoryDrawer from '../components/FileHistoryDrawer.vue'
 import PageCard from '../components/PageCard.vue'
@@ -44,7 +44,7 @@ const riskHistoryLoading = ref(false)
 const topEndpoints = ref<{ endpoint: string; callerCount: number }[]>([])
 const endpointsLoading = ref(false)
 
-const severityColor = (s: string) => ({ CRITICAL: '#fb7185', WARNING: '#fbbf24', INFO: '#a78bfa' })[s] ?? '#5c6a8a'
+const severityColor = (s: string) => ({ CRITICAL: '#dc2626', WARNING: '#b45309', INFO: '#6d4fd6' })[s] ?? '#5c6a8a'
 
 // ========== 图表主题（读取设计令牌，跟随主题切换自动取色） ==========
 function readThemeVars() {
@@ -88,6 +88,10 @@ async function loadBreakingChanges() {
   try { breakingChanges.value = await analysisApi.breakingChanges(project.value) } catch { breakingChanges.value = [] }
 }
 
+async function refreshAll() {
+  await Promise.all([loadVersions(), loadHotspots(), loadBreakingChanges()])
+}
+
 async function loadRiskScore() {
   if (!fromVersion.value || !toVersion.value) return
   loading.value = true
@@ -106,7 +110,7 @@ function renderGauge(score: number) {
     series: [{
       type: 'gauge', startAngle: 210, endAngle: -30, center: ['50%', '58%'], radius: '90%',
       min: 0, max: 100,
-      axisLine: { lineStyle: { width: 18, color: [[0.4, '#34d399'], [0.7, '#fbbf24'], [1, '#fb7185']] } },
+      axisLine: { lineStyle: { width: 18, color: [[0.4, '#059669'], [0.7, '#b45309'], [1, '#dc2626']] } },
       pointer: { length: '55%', width: 5, itemStyle: { color: 'auto' } },
       axisTick: { distance: -18, length: 6, lineStyle: { width: 1, color: v.axis } },
       splitLine: { distance: -22, length: 12, lineStyle: { width: 2, color: v.axis } },
@@ -149,20 +153,19 @@ function renderRiskTrend() {
     tooltip: {
       trigger: 'axis', backgroundColor: v.card, borderColor: v.border,
       textStyle: { color: v.text, fontSize: 12 },
-      axisPointer: { lineStyle: { color: 'rgba(109,124,255,0.5)' } }
+      axisPointer: { lineStyle: { color: 'rgba(79,90,209,0.5)' } }
     },
     xAxis: { type: 'category', data: reversed.map(r => r.version), axisLine: { lineStyle: { color: v.grid } }, axisLabel: { fontSize: 10, color: v.axis } },
     yAxis: { type: 'value', min: 0, max: 100, splitLine: { lineStyle: { color: v.grid } }, axisLabel: { color: v.axis, fontSize: 10 } },
     series: [{
       name: '风险分', type: 'line', smooth: true, data: reversed.map(r => r.totalScore),
-      lineStyle: { color: '#6d7cff', width: 2.5 },
-      itemStyle: { color: '#6d7cff', borderColor: v.card, borderWidth: 2 },
-      areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
-        colorStops: [{ offset: 0, color: 'rgba(109,124,255,0.3)' }, { offset: 1, color: 'rgba(109,124,255,0)' }] } },
+      lineStyle: { color: '#4f5ad1', width: 2.5 },
+      itemStyle: { color: '#4f5ad1', borderColor: v.card, borderWidth: 2 },
+      areaStyle: { color: 'rgba(79,90,209,0.2)' },
       markLine: {
         data: [
-          { yAxis: 70, lineStyle: { type: 'dashed', width: 1, color: '#fb7185' } },
-          { yAxis: 40, lineStyle: { type: 'dashed', width: 1, color: '#fbbf24' } }
+          { yAxis: 70, lineStyle: { type: 'dashed', width: 1, color: '#dc2626' } },
+          { yAxis: 40, lineStyle: { type: 'dashed', width: 1, color: '#b45309' } }
         ], silent: true, label: { show: false }
       }
     }]
@@ -317,6 +320,7 @@ onMounted(async () => { await Promise.all([loadVersions(), loadHotspots(), loadB
                 <span class="arrow">→</span>
                 <el-select v-model="toVersion" style="width: 140px" size="small" filterable><el-option v-for="v in versions" :key="v" :label="v" :value="v" /></el-select>
                 <el-button type="primary" size="small" @click="loadRiskScore" :loading="loading">评估</el-button>
+                <el-button size="small" @click="refreshAll" :loading="loading"><el-icon v-if="!loading"><Refresh /></el-icon>刷新</el-button>
               </div>
               <el-row v-if="riskScore" :gutter="16">
                 <el-col :xs="24" :md="8">
@@ -324,9 +328,9 @@ onMounted(async () => { await Promise.all([loadVersions(), loadHotspots(), loadB
                     <div class="et-card-head">
                       <div class="et-card-title"><span class="et-tic"><el-icon :size="15"><DataAnalysis /></el-icon></span>风险总览</div>
                       <div class="right legend">
-                        <span class="lg"><span class="lg-dot" style="background:#34d399"></span>低 0-40</span>
-                        <span class="lg"><span class="lg-dot" style="background:#fbbf24"></span>中 40-70</span>
-                        <span class="lg"><span class="lg-dot" style="background:#fb7185"></span>高 70+</span>
+                        <span class="lg"><span class="lg-dot" style="background:#059669"></span>低 0-40</span>
+                        <span class="lg"><span class="lg-dot" style="background:#b45309"></span>中 40-70</span>
+                        <span class="lg"><span class="lg-dot" style="background:#dc2626"></span>高 70+</span>
                       </div>
                     </div>
                     <div class="et-card-body">
@@ -345,7 +349,7 @@ onMounted(async () => { await Promise.all([loadVersions(), loadHotspots(), loadB
                     <div class="et-card-body">
                       <div v-for="(v, k) in riskScore.subScores" :key="k" class="score-row">
                         <span class="score-label">{{ ({ changeVolume: '变更量', breakingChange: '破坏性变更', historicalBugs: '历史缺陷', impactRadius: '影响半径', timeFactor: '时间因子' } as any)[k] || k }}</span>
-                        <el-progress :percentage="(v as number)" :color="v > 20 ? '#fb7185' : v > 12 ? '#fbbf24' : '#34d399'" :stroke-width="8" style="flex:1;margin: 0 12px" />
+                        <el-progress :percentage="(v as number)" :color="v > 20 ? '#dc2626' : v > 12 ? '#b45309' : '#059669'" :stroke-width="8" style="flex:1;margin: 0 12px" />
                         <span class="score-val">{{ v }}/{{ ({ changeVolume: 30, breakingChange: 25, historicalBugs: 20, impactRadius: 15, timeFactor: 10 } as any)[k] || 0 }}</span>
                       </div>
                       <div class="conclusion" :class="riskScore.totalScore >= 70 ? 'c-high' : riskScore.totalScore >= 40 ? 'c-mid' : 'c-low'">
@@ -434,9 +438,9 @@ onMounted(async () => { await Promise.all([loadVersions(), loadHotspots(), loadB
                 <div class="et-card-head">
                   <div class="et-card-title"><span class="et-tic"><el-icon :size="15"><TrendCharts /></el-icon></span>风险趋势</div>
                   <div class="right legend">
-                    <span class="lg"><span class="lg-line" style="background:linear-gradient(90deg,#6d7cff,#a78bfa)"></span>风险分</span>
-                    <span class="lg"><span class="lg-line dashed" style="--lc:#fb7185"></span>警戒 70</span>
-                    <span class="lg"><span class="lg-line dashed" style="--lc:#fbbf24"></span>关注 40</span>
+                    <span class="lg"><span class="lg-line" style="background:#4f5ad1"></span>风险分</span>
+                    <span class="lg"><span class="lg-line dashed" style="--lc:#dc2626"></span>警戒 70</span>
+                    <span class="lg"><span class="lg-line dashed" style="--lc:#b45309"></span>关注 40</span>
                   </div>
                 </div>
                 <div class="et-card-body">
@@ -448,7 +452,7 @@ onMounted(async () => { await Promise.all([loadVersions(), loadHotspots(), loadB
                 <el-table-column prop="version" label="版本" width="120" />
                 <el-table-column label="风险分" width="180">
                   <template #default="{ row }">
-                    <el-progress :percentage="row.totalScore" :color="row.totalScore >= 70 ? '#fb7185' : row.totalScore >= 40 ? '#fbbf24' : '#34d399'" :stroke-width="10" style="width: 120px" />
+                    <el-progress :percentage="row.totalScore" :color="row.totalScore >= 70 ? '#dc2626' : row.totalScore >= 40 ? '#b45309' : '#059669'" :stroke-width="10" style="width: 120px" />
                   </template>
                 </el-table-column>
                 <el-table-column prop="explanation" label="说明" min-width="260" show-overflow-tooltip />
@@ -491,7 +495,7 @@ onMounted(async () => { await Promise.all([loadVersions(), loadHotspots(), loadB
 .page-tabs :deep(.el-tabs__header) { margin: 0; padding: 0 20px; }
 .page-tabs :deep(.el-tabs__item) { padding: 0 16px; height: 52px; }
 .page-tabs :deep(.el-badge__content) {
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b));
+  background: var(--et-primary);
   border: none; font-weight: 700;
 }
 .tab-content { padding: 18px 22px 24px; }
@@ -505,7 +509,7 @@ onMounted(async () => { await Promise.all([loadVersions(), loadHotspots(), loadB
 }
 .toolbar-ic {
   width: 26px; height: 26px; border-radius: 8px;
-  background: rgba(109, 124, 255, 0.12); color: var(--et-primary-light);
+  background: rgba(79, 90, 209, 0.12); color: var(--et-primary-light);
   display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
@@ -539,8 +543,8 @@ onMounted(async () => { await Promise.all([loadVersions(), loadHotspots(), loadB
 }
 .hot-row:last-child { border-bottom: none; }
 .hot-row.clickable { cursor: pointer; }
-.hot-row.clickable:hover { background: rgba(109, 124, 255, 0.06); padding-left: 10px; padding-right: 10px; }
-.hot-row.clickable:hover .hot-path { color: var(--et-grad-c); }
+.hot-row.clickable:hover { background: rgba(79, 90, 209, 0.06); padding-left: 10px; padding-right: 10px; }
+.hot-row.clickable:hover .hot-path { color: #0e7490; }
 .hot-rank { font-weight: 800; width: 26px; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--et-text-muted); flex-shrink: 0; }
 .hot-rank.rank-top { color: var(--et-danger); }
 .hot-path {
@@ -556,12 +560,12 @@ onMounted(async () => { await Promise.all([loadVersions(), loadHotspots(), loadB
   border: 1px solid var(--et-border); font-variant-numeric: tabular-nums;
   flex-shrink: 0;
 }
-.pill-warn { color: var(--et-warn); background: rgba(251, 191, 36, 0.12); border-color: transparent; }
-.pill-danger { color: var(--et-danger); background: rgba(251, 113, 133, 0.13); border-color: transparent; }
-.pill-info { color: var(--et-primary-light); background: rgba(109, 124, 255, 0.13); border-color: transparent; }
+.pill-warn { color: var(--et-warn); background: rgba(180, 83, 9, 0.12); border-color: transparent; }
+.pill-danger { color: var(--et-danger); background: rgba(220, 38, 38, 0.13); border-color: transparent; }
+.pill-info { color: var(--et-primary-light); background: rgba(79, 90, 209, 0.13); border-color: transparent; }
 .ok-pill {
   font-size: 10.5px; font-weight: 700; padding: 2.5px 9px; border-radius: 20px;
-  color: var(--et-ok); background: rgba(52, 211, 153, 0.13);
+  color: var(--et-ok); background: rgba(5, 150, 105, 0.13);
 }
 .sev-pill {
   display: inline-flex; align-items: center;
@@ -578,12 +582,12 @@ onMounted(async () => { await Promise.all([loadVersions(), loadHotspots(), loadB
 /* ========== AI 结论卡片 ========== */
 .conclusion {
   margin-top: 16px; padding: 14px 16px; border-radius: 14px;
-  border: 1px solid rgba(109, 124, 255, 0.3);
-  background: linear-gradient(120deg, rgba(109, 124, 255, 0.1), rgba(167, 139, 250, 0.05) 50%, rgba(56, 225, 255, 0.07));
+  border: 1px solid rgba(79, 90, 209, 0.3);
+  background: rgba(79, 90, 209, 0.05);
 }
-.conclusion.c-high { border-color: rgba(251, 113, 133, 0.38); background: linear-gradient(120deg, rgba(251, 113, 133, 0.13), rgba(251, 113, 133, 0.04)); }
-.conclusion.c-mid { border-color: rgba(251, 191, 36, 0.38); background: linear-gradient(120deg, rgba(251, 191, 36, 0.11), rgba(251, 191, 36, 0.04)); }
-.conclusion.c-low { border-color: rgba(52, 211, 153, 0.38); background: linear-gradient(120deg, rgba(52, 211, 153, 0.11), rgba(52, 211, 153, 0.04)); }
+.conclusion.c-high { border-color: rgba(220, 38, 38, 0.38); background: rgba(220, 38, 38, 0.06); }
+.conclusion.c-mid { border-color: rgba(180, 83, 9, 0.38); background: rgba(180, 83, 9, 0.05); }
+.conclusion.c-low { border-color: rgba(5, 150, 105, 0.38); background: rgba(5, 150, 105, 0.05); }
 .c-head { display: flex; align-items: center; gap: 10px; }
 .c-title { font-weight: 700; font-size: 13.5px; color: var(--et-text); }
 .c-tag {
@@ -591,21 +595,21 @@ onMounted(async () => { await Promise.all([loadVersions(), loadHotspots(), loadB
   font-size: 10.5px; font-weight: 700; padding: 2.5px 10px; border-radius: 20px;
   flex-shrink: 0;
 }
-.c-tag.high { color: var(--et-danger); background: rgba(251, 113, 133, 0.13); }
-.c-tag.mid { color: var(--et-warn); background: rgba(251, 191, 36, 0.13); }
-.c-tag.low { color: var(--et-ok); background: rgba(52, 211, 153, 0.13); }
+.c-tag.high { color: var(--et-danger); background: rgba(220, 38, 38, 0.13); }
+.c-tag.mid { color: var(--et-warn); background: rgba(180, 83, 9, 0.13); }
+.c-tag.low { color: var(--et-ok); background: rgba(5, 150, 105, 0.13); }
 .c-text { margin: 10px 0 0; font-size: 13px; line-height: 1.7; color: var(--et-text-secondary); }
 
 /* ========== 影响面 ========== */
 .impact-banner {
   display: flex; align-items: center; gap: 12px;
   margin-bottom: 18px; padding: 13px 18px; border-radius: 14px;
-  background: linear-gradient(120deg, rgba(109, 124, 255, 0.12), rgba(56, 225, 255, 0.06));
-  border: 1px solid rgba(109, 124, 255, 0.26);
+  background: rgba(79, 90, 209, 0.05);
+  border: 1px solid rgba(79, 90, 209, 0.26);
 }
 .impact-banner .et-mini-tag { margin-left: auto; }
 .ib-text { font-size: 13.5px; font-weight: 600; }
-.ib-text b { font-size: 17px; color: var(--et-grad-c); margin: 0 3px; font-variant-numeric: tabular-nums; }
+.ib-text b { font-size: 17px; color: #0e7490; margin: 0 3px; font-variant-numeric: tabular-nums; }
 
 .ep-row {
   padding: 7px 0; border-bottom: 1px dashed var(--et-border);

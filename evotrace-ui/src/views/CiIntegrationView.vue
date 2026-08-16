@@ -389,9 +389,9 @@ onMounted(load)
   font-size: 11px; font-weight: 700; letter-spacing: 0.3px;
 }
 .type-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.type-webhook { color: var(--et-primary-light); background: rgba(109, 124, 255, 0.13); }
-.type-cron { color: var(--et-grad-b); background: rgba(167, 139, 250, 0.14); }
-.type-mr { color: var(--et-warn); background: rgba(251, 191, 36, 0.13); }
+.type-webhook { color: var(--et-primary-light); background: var(--et-primary-bg); }
+.type-cron { color: #6d4fd6; background: rgba(109, 79, 214, 0.14); }
+.type-mr { color: var(--et-warn); background: rgba(180, 83, 9, 0.1); }
 
 /* 状态胶囊 */
 .status-pill {
@@ -399,7 +399,7 @@ onMounted(load)
   padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 700;
 }
 .status-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.status-pill.ok { color: var(--et-ok); background: rgba(52, 211, 153, 0.12); }
+.status-pill.ok { color: var(--et-ok); background: rgba(5, 150, 105, 0.1); }
 .status-pill.off { color: var(--et-text-muted); background: var(--et-bg-muted); }
 
 /* 操作按钮 */
@@ -410,11 +410,10 @@ onMounted(load)
 }
 .ops-btn:hover {
   background: color-mix(in srgb, currentColor 22%, transparent);
-  box-shadow: 0 0 12px var(--et-glow);
 }
-.ops-btn.primary { color: #a8b4ff; }
-.ops-btn.success { color: #34d399; }
-.ops-btn.danger { color: #fb7185; }
+.ops-btn.primary { color: #5f6bd8; }
+.ops-btn.success { color: #059669; }
+.ops-btn.danger { color: #dc2626; }
 
 .empty-sub { margin-top: 6px; font-size: 12px; color: var(--et-text-muted); }
 
@@ -435,8 +434,8 @@ onMounted(load)
 .stat.ok .stat-num { color: var(--et-ok); }
 .stat.bad .stat-num { color: var(--et-danger); }
 .stat.skip .stat-num { color: var(--et-warn); }
-.stat.run .stat-num { color: var(--et-grad-c); }
-.stat.time .stat-num { color: var(--et-grad-b); }
+.stat.run .stat-num { color: #0e7490; }
+.stat.time .stat-num { color: #6d4fd6; }
 
 .rate-row { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
 .rate-label { font-size: 12.5px; color: var(--et-text-muted); flex-shrink: 0; }
@@ -452,7 +451,7 @@ onMounted(load)
 .code-desc code {
   padding: 1px 6px; border-radius: 6px; font-size: 12px;
   background: var(--et-bg-muted); border: 1px solid var(--et-border);
-  color: var(--et-grad-c);
+  color: #0e7490;
 }
 .code-block {
   border-radius: 12px; overflow: hidden;

@@ -237,25 +237,25 @@ onMounted(load)
   padding: 8px 14px; border-radius: 20px; border: 1px solid transparent;
   font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.18s;
 }
-.ops-btn.primary { background: rgba(109, 124, 255, 0.14); color: #a8b4ff; }
-.ops-btn.primary:hover { background: rgba(109, 124, 255, 0.28); box-shadow: 0 0 12px rgba(109, 124, 255, 0.3); }
-.ops-btn.danger { background: rgba(251, 113, 133, 0.14); color: #fb7185; }
-.ops-btn.danger:hover { background: rgba(251, 113, 133, 0.28); box-shadow: 0 0 12px rgba(251, 113, 133, 0.3); }
+.ops-btn.primary { background: rgba(79, 90, 209, 0.14); color: #5f6bd8; }
+.ops-btn.primary:hover { background: rgba(79, 90, 209, 0.28); }
+.ops-btn.danger { background: rgba(220, 38, 38, 0.14); color: #dc2626; }
+.ops-btn.danger:hover { background: rgba(220, 38, 38, 0.28); }
 .ops { display: flex; gap: 6px; }
 .ev {
-  font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--et-grad-c);
-  padding: 3px 9px; border-radius: 6px; background: rgba(56, 225, 255, 0.1);
+  font-family: ui-monospace, monospace; font-size: 11.5px; color: #0891b2;
+  padding: 3px 9px; border-radius: 6px; background: rgba(8, 145, 178, 0.1);
 }
 .action { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
-.action.notify { color: #38e1ff; background: rgba(56, 225, 255, 0.12); }
-.action.create_bug { color: #fb7185; background: rgba(251, 113, 133, 0.12); }
-.action.auto_assign { color: #fbbf24; background: rgba(251, 191, 36, 0.12); }
-.action.ai_analyze { color: #a78bfa; background: rgba(167, 139, 250, 0.12); }
+.action.notify { color: #0891b2; background: rgba(8, 145, 178, 0.12); }
+.action.create_bug { color: #dc2626; background: rgba(220, 38, 38, 0.12); }
+.action.auto_assign { color: #b45309; background: rgba(180, 83, 9, 0.12); }
+.action.ai_analyze { color: #6d4fd6; background: rgba(109, 79, 214, 0.12); }
 .opt { line-height: 1.3; }
 .opt-desc { font-size: 11px; color: var(--et-text-muted); }
 .mono-input :deep(textarea) { font-family: ui-monospace, monospace; font-size: 12px; }
 .smoke-result {
   margin-top: 8px; padding: 10px 14px; border-radius: 10px;
-  background: rgba(52, 211, 153, 0.1); color: #34d399; font-size: 13px; font-weight: 600;
+  background: rgba(5, 150, 105, 0.1); color: #059669; font-size: 13px; font-weight: 600;
 }
 </style>

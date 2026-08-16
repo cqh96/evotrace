@@ -4,7 +4,7 @@ import { storeToRefs } from 'pinia'
 import * as echarts from 'echarts'
 import { useRouter } from 'vue-router'
 import {
-  User, Tickets, Warning, MagicStick, ChatDotRound, ArrowRight
+  User, Tickets, Warning, MagicStick, ChatDotRound, ArrowRight, Refresh
 } from '@element-plus/icons-vue'
 import { pmApi, bugApi, feedbackApi, automationRuleApi } from '../api'
 import { useProjectStore } from '../stores/project'
@@ -37,6 +37,11 @@ async function load() {
   loading.value = false
 }
 
+async function refresh() {
+  await load()
+  setupCharts()
+}
+
 const reqStats = computed(() => {
   const by: Record<string, number> = {}
   for (const req of reqs.value) by[req.status] = (by[req.status] || 0) + 1
@@ -50,14 +55,14 @@ const statusLabels: Record<string, string> = {
   DRAFT: '草稿', REVIEW: '评审中', DEVELOPING: '开发中', TESTING: '测试中', DONE: '已完成'
 }
 const statusColors: Record<string, string> = {
-  DRAFT: '#64748b', REVIEW: '#fbbf24', DEVELOPING: '#38e1ff', TESTING: '#6d7cff', DONE: '#34d399'
+  DRAFT: '#64748b', REVIEW: '#b45309', DEVELOPING: '#0891b2', TESTING: '#4f5ad1', DONE: '#059669'
 }
 
 const cards = [
-  { label: '我的需求', value: reqs.value.length, foot: '需求工作台', icon: User, color: '#6d7cff', path: '/pm' },
-  { label: '打开缺陷', value: openBugs.value, foot: '缺陷管理', icon: Warning, color: '#fb7185', path: '/bugs' },
-  { label: '待处理反馈', value: newFeedback.value, foot: 'AI 反馈分析', icon: ChatDotRound, color: '#38e1ff', path: '/feedback' },
-  { label: '启用规则', value: enabledRules.value, foot: '自动化规则', icon: MagicStick, color: '#34d399', path: '/automation' }
+  { label: '我的需求', value: reqs.value.length, foot: '需求工作台', icon: User, color: '#4f5ad1', path: '/pm' },
+  { label: '打开缺陷', value: openBugs.value, foot: '缺陷管理', icon: Warning, color: '#dc2626', path: '/bugs' },
+  { label: '待处理反馈', value: newFeedback.value, foot: 'AI 反馈分析', icon: ChatDotRound, color: '#0891b2', path: '/feedback' },
+  { label: '启用规则', value: enabledRules.value, foot: '自动化规则', icon: MagicStick, color: '#059669', path: '/automation' }
 ]
 
 function go(path: string) { router.push(path) }
@@ -92,7 +97,7 @@ function setupCharts() {
       data: keys.map(k => ({
         name: statusLabels[k] || k,
         value: reqStats.value[k],
-        itemStyle: { color: statusColors[k] || '#6d7cff' }
+        itemStyle: { color: statusColors[k] || '#4f5ad1' }
       }))
     }]
   })
@@ -125,6 +130,9 @@ onMounted(async () => {
       <div class="banner-right">
         <div class="big-num">{{ reqs.length }}</div>
         <div class="big-label">需求总数</div>
+        <el-button size="small" :loading="loading" @click="refresh">
+          <el-icon v-if="!loading"><Refresh /></el-icon>刷新
+        </el-button>
       </div>
     </div>
 
@@ -187,15 +195,16 @@ onMounted(async () => {
   display: flex; align-items: center; justify-content: space-between;
   padding: 22px 24px; margin-bottom: 18px;
   border-radius: 18px;
-  background: linear-gradient(135deg, rgba(109, 124, 255, 0.16), rgba(56, 225, 255, 0.08));
+  background: var(--et-card-solid);
   border: 1px solid var(--et-hover-border);
 }
 .banner h2 { margin: 0 0 6px; font-size: 22px; }
 .banner p { margin: 0; font-size: 13px; color: var(--et-text-secondary); }
-.banner b { color: var(--et-grad-c); }
+.banner b { color: #0e7490; }
 .banner-right { display: flex; flex-direction: column; align-items: flex-end; }
-.big-num { font-size: 40px; font-weight: 800; line-height: 1; background: linear-gradient(90deg, var(--et-grad-a), var(--et-grad-c)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.big-num { font-size: 40px; font-weight: 800; line-height: 1; color: var(--et-primary); }
 .big-label { font-size: 12px; color: var(--et-text-muted); margin-top: 4px; }
+.banner-right .el-button { margin-top: 10px; }
 
 .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 18px; }
 .agg-card {
@@ -207,7 +216,7 @@ onMounted(async () => {
 .agg-ic {
   width: 40px; height: 40px; border-radius: 12px; margin-bottom: 12px;
   display: flex; align-items: center; justify-content: center; color: #fff;
-  background: linear-gradient(135deg, var(--ac), color-mix(in srgb, var(--ac) 60%, #a78bfa));
+  background: var(--ac);
 }
 .agg-num { font-size: 30px; font-weight: 800; line-height: 1; }
 .agg-label { font-size: 13px; color: var(--et-text-secondary); margin-top: 4px; font-weight: 500; }
@@ -233,7 +242,7 @@ onMounted(async () => {
 .t-text { flex: 1; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .t-status { font-size: 11px; color: var(--et-text-muted); }
 .sev { font-size: 10px; font-weight: 700; color: #fff; padding: 1px 6px; border-radius: 5px; }
-.sev.p0 { background: #dc2626; } .sev.p1 { background: #f97316; } .sev.p2 { background: #eab308; } .sev.p3 { background: #64748b; }
+.sev.p0 { background: #dc2626; } .sev.p1 { background: #c2410c; } .sev.p2 { background: #d97706; } .sev.p3 { background: #64748b; }
 .src { font-size: 10px; font-weight: 700; color: var(--et-text-secondary); padding: 1px 6px; border-radius: 5px; background: var(--et-bg-muted); border: 1px solid var(--et-border); }
 .empty { color: var(--et-text-muted); font-size: 12.5px; padding: 8px; }
 

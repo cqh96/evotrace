@@ -36,10 +36,10 @@ function channelTagCls(c: string) {
 }
 function channelAccent(c: string) {
   const map: Record<string, string> = {
-    FEISHU: '#38e1ff', DINGTALK: '#fbbf24', WECHAT: '#34d399',
-    WEBHOOK: '#a78bfa', EMAIL: '#f472b6'
+    FEISHU: '#0891b2', DINGTALK: '#b45309', WECHAT: '#059669',
+    WEBHOOK: '#6d4fd6', EMAIL: '#d6336c'
   }
-  return map[c] ?? '#6d7cff'
+  return map[c] ?? '#4f5ad1'
 }
 function trackCreated() {
   const f = form.value.filter
@@ -213,35 +213,32 @@ onMounted(load)
   position: relative; display: flex; align-items: center; gap: 14px;
   padding: 14px 16px; border-radius: 14px;
   background: var(--et-card-bg); border: 1px solid var(--et-border);
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   overflow: hidden; transition: border-color 0.22s, box-shadow 0.22s, background 0.22s;
 }
 .sub-card:hover { border-color: var(--et-hover-border); box-shadow: var(--et-shadow-md); }
 .sub-card.on {
-  border-color: rgba(52, 211, 153, 0.3);
-  background: linear-gradient(90deg, rgba(52, 211, 153, 0.06), rgba(109, 124, 255, 0.05));
+  border-color: rgba(5, 150, 105, 0.3);
+  background: var(--et-primary-bg);
 }
 .sub-accent {
   position: absolute; left: 0; top: 14px; bottom: 14px;
   width: 3px; border-radius: 3px;
-  background: var(--acc, var(--et-grad-a)); opacity: 0.7;
+  background: var(--acc, var(--et-primary)); opacity: 0.7;
 }
 .sub-main { flex: 1; min-width: 0; }
 .sub-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .sub-name { font-size: 14px; font-weight: 700; }
 .sub-status { font-size: 10.5px; font-weight: 700; padding: 2.5px 8px; border-radius: 20px; flex-shrink: 0; }
-.sub-status.on { color: var(--et-ok); background: rgba(52, 211, 153, 0.12); }
+.sub-status.on { color: var(--et-ok); background: rgba(5, 150, 105, 0.1); }
 .sub-status.off { color: var(--et-text-muted); background: var(--et-bg-muted); }
 .sub-chips { display: flex; align-items: center; gap: 7px; margin-top: 8px; flex-wrap: wrap; }
 .sub-time { font-size: 11px; color: var(--et-text-muted); }
 .sub-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 
-/* 开关启用时渐变配色 */
+/* 开关启用时配色 */
 .sub-switch :deep(.el-switch.is-checked .el-switch__core) {
-  background-image: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b)) !important;
-  background-color: transparent !important;
+  background: var(--et-primary) !important;
   border-color: transparent !important;
-  box-shadow: 0 0 10px var(--et-glow);
 }
 .sub-del {
   width: 30px; height: 30px; border-radius: 9px;
@@ -249,7 +246,7 @@ onMounted(load)
   color: var(--et-text-muted); background: none;
   border: 1px solid transparent; cursor: pointer; transition: all 0.15s;
 }
-.sub-del:hover { color: var(--et-danger); background: rgba(251, 113, 133, 0.12); border-color: rgba(251, 113, 133, 0.3); }
+.sub-del:hover { color: var(--et-danger); background: rgba(220, 38, 38, 0.1); border-color: rgba(220, 38, 38, 0.3); }
 
 /* ---------- 通知记录 ---------- */
 .log-list { display: flex; flex-direction: column; }
@@ -259,7 +256,7 @@ onMounted(load)
   border-bottom: 1px solid var(--et-border); transition: background 0.15s;
 }
 .log-row:last-child { border-bottom: none; }
-.log-row:hover { background: rgba(109, 124, 255, 0.05); }
+.log-row:hover { background: rgba(79, 90, 209, 0.05); }
 .log-title {
   flex: 1; min-width: 0; font-size: 13px; font-weight: 500;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

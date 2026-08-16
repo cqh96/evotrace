@@ -402,21 +402,21 @@ Events: Push / MR / Tag</code></pre></el-tab-pane>
 .guide-steps :deep(.el-step__description) { font-size: 11.5px; color: var(--et-text-muted); }
 .guide-steps :deep(.el-step__line) { background: var(--et-border); }
 .guide-steps :deep(.el-step__head.is-process .el-step__icon) {
-  border-color: var(--et-grad-b); color: var(--et-grad-b);
-  box-shadow: 0 0 0 4px rgba(167, 139, 250, 0.15);
+  border-color: #6d4fd6; color: #6d4fd6;
+  box-shadow: 0 0 0 4px rgba(109, 79, 214, 0.15);
 }
 .guide-steps :deep(.el-step__head.is-process .el-step__title) { color: var(--et-text); }
 .guide-steps :deep(.el-step__head.is-success .el-step__icon) {
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b));
-  border-color: transparent; color: #fff; box-shadow: 0 4px 12px var(--et-glow);
+  background: var(--et-primary);
+  border-color: transparent; color: #fff;
 }
-.guide-steps :deep(.el-step__head.is-success .el-step__line) { background: linear-gradient(90deg, var(--et-grad-a), var(--et-grad-c)); }
+.guide-steps :deep(.el-step__head.is-success .el-step__line) { background: var(--et-primary); }
 .guide-steps :deep(.el-step__head.is-success .el-step__title) { color: var(--et-text); }
 
 /* ---------- 项目卡片 ---------- */
 .proj-list { display: flex; flex-direction: column; }
 .proj-card { padding: 16px 18px; }
-.proj-card.open { border-color: rgba(109, 124, 255, 0.45); }
+.proj-card.open { border-color: rgba(79, 90, 209, 0.45); }
 .proj-head { display: flex; align-items: flex-start; gap: 14px; }
 .proj-info { flex: 1; min-width: 0; }
 .proj-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -440,8 +440,8 @@ Events: Push / MR / Tag</code></pre></el-tab-pane>
   font-size: 11px; font-weight: 700;
   padding: 3px 9px; border-radius: 20px; flex-shrink: 0;
 }
-.st-pill.ok { color: var(--et-ok); background: rgba(52, 211, 153, 0.12); }
-.st-pill.warn { color: var(--et-warn); background: rgba(251, 191, 36, 0.12); }
+.st-pill.ok { color: var(--et-ok); background: rgba(5, 150, 105, 0.1); }
+.st-pill.warn { color: var(--et-warn); background: rgba(180, 83, 9, 0.1); }
 .st-pill.off { color: var(--et-text-muted); background: var(--et-bg-muted); }
 .st-pill .et-pulse { width: 7px; height: 7px; }
 .st-dot { width: 7px; height: 7px; border-radius: 50%; }
@@ -482,7 +482,7 @@ Events: Push / MR / Tag</code></pre></el-tab-pane>
   color: var(--et-text-muted); background: var(--et-bg-muted);
   border: 1px solid var(--et-border); cursor: pointer; transition: all 0.15s;
 }
-.code-copy:hover { color: var(--et-grad-c); border-color: var(--et-hover-border); }
+.code-copy:hover { color: #0e7490; border-color: var(--et-hover-border); }
 .sdk-note {
   display: flex; align-items: center; gap: 6px; margin-top: 10px;
   font-size: 11.5px; color: var(--et-text-muted);
@@ -498,7 +498,7 @@ Events: Push / MR / Tag</code></pre></el-tab-pane>
   border-bottom: 1px solid var(--et-border); transition: background 0.15s;
 }
 .app-row:last-child { border-bottom: none; }
-.app-row:hover { background: rgba(109, 124, 255, 0.05); }
+.app-row:hover { background: rgba(79, 90, 209, 0.05); }
 .app-logo { width: 34px; height: 34px; font-size: 13px; border-radius: 10px; }
 .app-main { flex: 1; min-width: 0; }
 .app-top { display: flex; align-items: center; gap: 9px; }
@@ -515,12 +515,12 @@ Events: Push / MR / Tag</code></pre></el-tab-pane>
 }
 .dialog-steps :deep(.el-step__title) { font-size: 12.5px; font-weight: 600; color: var(--et-text-secondary); }
 .dialog-steps :deep(.el-step__line) { background: var(--et-border); }
-.dialog-steps :deep(.el-step__head.is-process .el-step__icon) { border-color: var(--et-grad-b); color: var(--et-grad-b); }
+.dialog-steps :deep(.el-step__head.is-process .el-step__icon) { border-color: #6d4fd6; color: #6d4fd6; }
 .dialog-steps :deep(.el-step__head.is-success .el-step__icon) {
-  background: linear-gradient(135deg, var(--et-grad-a), var(--et-grad-b));
+  background: var(--et-primary);
   border-color: transparent; color: #fff;
 }
-.dialog-steps :deep(.el-step__head.is-success .el-step__line) { background: linear-gradient(90deg, var(--et-grad-a), var(--et-grad-c)); }
+.dialog-steps :deep(.el-step__head.is-success .el-step__line) { background: var(--et-primary); }
 
 .cred-box {
   background: var(--et-card-solid); border: 1px solid var(--et-border);
@@ -531,7 +531,7 @@ Events: Push / MR / Tag</code></pre></el-tab-pane>
 .cred-row span { width: 84px; font-size: 12.5px; font-weight: 600; color: var(--et-text-secondary); flex-shrink: 0; }
 .cred-row code {
   flex: 1; font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 12px; color: var(--et-grad-c);
+  font-size: 12px; color: #0e7490;
   background: var(--et-bg-muted); border: 1px solid var(--et-border);
   padding: 6px 10px; border-radius: 8px; word-break: break-all;
 }
@@ -540,5 +540,5 @@ Events: Push / MR / Tag</code></pre></el-tab-pane>
   padding: 14px; border-radius: 10px; overflow-x: auto;
 }
 .guide code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; color: var(--et-text); white-space: pre; line-height: 1.7; }
-.key-code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; color: var(--et-grad-c); }
+.key-code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; color: #0e7490; }
 </style>

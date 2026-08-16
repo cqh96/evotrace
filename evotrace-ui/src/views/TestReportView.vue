@@ -215,7 +215,7 @@ const ringStyle = computed(() => {
   const pct = Math.min(100, Math.max(0, passRate.value))
   const color = pct >= 80 ? 'var(--et-ok)' : pct >= 60 ? 'var(--et-warn)' : 'var(--et-danger)'
   return {
-    background: `conic-gradient(${color} ${pct * 3.6}deg, rgba(255,255,255,0.08) 0deg)`
+    background: `conic-gradient(${color} ${pct * 3.6}deg, rgba(107, 114, 128, 0.15) 0deg)`
   }
 })
 
@@ -405,10 +405,10 @@ onMounted(load)
   border-radius: 50%;
   background: currentColor;
 }
-.status-pill.ok { color: var(--et-ok); background: rgba(52, 211, 153, 0.12); }
-.status-pill.bad { color: var(--et-danger); background: rgba(251, 113, 133, 0.12); }
-.status-pill.warn { color: var(--et-warn); background: rgba(251, 191, 36, 0.13); }
-.status-pill.info { color: var(--et-grad-c); background: rgba(56, 225, 255, 0.12); }
+.status-pill.ok { color: var(--et-ok); background: rgba(5, 150, 105, 0.12); }
+.status-pill.bad { color: var(--et-danger); background: rgba(220, 38, 38, 0.12); }
+.status-pill.warn { color: var(--et-warn); background: rgba(180, 83, 9, 0.13); }
+.status-pill.info { color: #0e7490; background: rgba(8, 145, 178, 0.12); }
 
 /* 操作按钮（半透明胶囊） */
 .ops-btn {
@@ -418,12 +418,12 @@ onMounted(load)
 }
 .ops-btn:hover {
   background: color-mix(in srgb, currentColor 22%, transparent);
-  box-shadow: 0 0 12px var(--et-glow);
+  box-shadow: var(--et-shadow-sm);
 }
-.ops-btn.primary { color: #a8b4ff; }
-.ops-btn.success { color: #34d399; }
-.ops-btn.danger { color: #fb7185; }
-.ops-btn.info { color: #38e1ff; }
+.ops-btn.primary { color: #5f6bd8; }
+.ops-btn.success { color: #059669; }
+.ops-btn.danger { color: #dc2626; }
+.ops-btn.info { color: #0891b2; }
 
 /* 抽屉 */
 .drawer-title {
@@ -461,14 +461,6 @@ onMounted(load)
   justify-content: center;
   position: relative;
 }
-.ring::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  box-shadow: 0 0 30px var(--et-glow);
-  opacity: 0.5;
-}
 .ring-inner {
   width: 96px;
   height: 96px;
@@ -486,10 +478,7 @@ onMounted(load)
   font-size: 26px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  background: linear-gradient(90deg, var(--et-grad-a), var(--et-grad-c));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--et-primary);
 }
 .ring-label {
   font-size: 11px;
@@ -535,7 +524,7 @@ onMounted(load)
   width: 4px;
   height: 14px;
   border-radius: 2px;
-  background: linear-gradient(180deg, var(--et-grad-a), var(--et-grad-c));
+  background: var(--et-primary);
 }
 
 .info-grid {
@@ -563,8 +552,8 @@ onMounted(load)
   border-radius: 20px;
   font-size: 11px;
   font-weight: 700;
-  color: var(--et-grad-b);
-  background: rgba(167, 139, 250, 0.14);
+  color: #6d4fd6;
+  background: rgba(109, 79, 214, 0.14);
 }
 
 .summary-text {
@@ -603,7 +592,6 @@ onMounted(load)
   height: 8px;
   border-radius: 50%;
   background: var(--et-danger);
-  box-shadow: 0 0 8px var(--et-danger);
   flex-shrink: 0;
 }
 .fail-name { color: var(--et-text-secondary); }
@@ -630,7 +618,7 @@ onMounted(load)
 .cov-v {
   font-size: 16px;
   font-weight: 700;
-  color: var(--et-grad-b);
+  color: #6d4fd6;
 }
 
 /* 分享 */
