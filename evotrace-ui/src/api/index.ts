@@ -1181,6 +1181,10 @@ export interface SqlConsoleConnection {
   dbName: string
   dbUser: string
   hasDbPassword?: boolean
+  dbSshUser?: string
+  dbSshPort?: number
+  hasDbSshPassword?: boolean
+  hasDbSshKey?: boolean
   createdAt: string
   updatedAt: string
 }

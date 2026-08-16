@@ -40,12 +40,16 @@ public class SqlConsoleService {
         this.jdbc = jdbc;
     }
 
-    private record Tunnel(Session session, int localPort) {}
+    private record Tunnel(Session hop1, Session hop2, int localPort) {
+        boolean alive() {
+            return hop1.isConnected() && (hop2 == null || hop2.isConnected());
+        }
+    }
 
     /* ==================== 连接配置 CRUD ==================== */
 
     public List<Map<String, Object>> list() {
-        // 不回传任何密码;ssh_password 仅作为"是否已设置"提示
+        // 不回传任何密码;仅回传"是否已设置"提示
         return jdbc.queryForList("""
                 SELECT id, name, ssh_host AS "sshHost", ssh_port AS "sshPort", ssh_user AS "sshUser",
                        (ssh_password IS NOT NULL) AS "hasSshPassword",
@@ -53,6 +57,9 @@ public class SqlConsoleService {
                        db_type AS "dbType", db_host AS "dbHost", db_port AS "dbPort",
                        db_name AS "dbName", db_user AS "dbUser",
                        (db_password IS NOT NULL) AS "hasDbPassword",
+                       db_ssh_user AS "dbSshUser", db_ssh_port AS "dbSshPort",
+                       (db_ssh_password IS NOT NULL) AS "hasDbSshPassword",
+                       (db_ssh_key_path IS NOT NULL) AS "hasDbSshKey",
                        created_at AS "createdAt", updated_at AS "updatedAt"
                 FROM sql_console_connection ORDER BY id
                 """);
@@ -62,8 +69,9 @@ public class SqlConsoleService {
     public Long create(Map<String, Object> body) {
         Long id = jdbc.queryForObject("""
                 INSERT INTO sql_console_connection(name, ssh_host, ssh_port, ssh_user, ssh_password,
-                        ssh_key_path, db_type, db_host, db_port, db_name, db_user, db_password, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+                        ssh_key_path, db_type, db_host, db_port, db_name, db_user, db_password,
+                        db_ssh_user, db_ssh_password, db_ssh_key_path, db_ssh_port, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
                 """, Long.class,
                 required(body, "name"), required(body, "sshHost"),
                 intOf(body, "sshPort", 22), required(body, "sshUser"),
@@ -71,7 +79,9 @@ public class SqlConsoleService {
                 strOf(body, "dbType") == null ? "postgres" : strOf(body, "dbType"),
                 required(body, "dbHost"), intOf(body, "dbPort", 0),
                 required(body, "dbName"), required(body, "dbUser"),
-                required(body, "dbPassword"), strOf(body, "createdBy"));
+                required(body, "dbPassword"),
+                strOf(body, "dbSshUser"), strOf(body, "dbSshPassword"), strOf(body, "dbSshKeyPath"),
+                intOf(body, "dbSshPort", 22), strOf(body, "createdBy"));
         return id;
     }
 
@@ -91,13 +101,19 @@ public class SqlConsoleService {
                     db_name = COALESCE(?, db_name),
                     db_user = COALESCE(?, db_user),
                     db_password = COALESCE(?, db_password),
+                    db_ssh_user = COALESCE(?, db_ssh_user),
+                    db_ssh_password = COALESCE(?, db_ssh_password),
+                    db_ssh_key_path = COALESCE(?, db_ssh_key_path),
+                    db_ssh_port = COALESCE(?, db_ssh_port),
                     updated_at = now()
                 WHERE id = ?
                 """,
                 strOf(body, "name"), strOf(body, "sshHost"), body.get("sshPort") instanceof Number n ? n.intValue() : null,
                 strOf(body, "sshUser"), strOf(body, "sshPassword"), strOf(body, "sshKeyPath"),
                 strOf(body, "dbType"), strOf(body, "dbHost"), body.get("dbPort") instanceof Number n ? n.intValue() : null,
-                strOf(body, "dbName"), strOf(body, "dbUser"), strOf(body, "dbPassword"), id);
+                strOf(body, "dbName"), strOf(body, "dbUser"), strOf(body, "dbPassword"),
+                strOf(body, "dbSshUser"), strOf(body, "dbSshPassword"), strOf(body, "dbSshKeyPath"),
+                body.get("dbSshPort") instanceof Number n ? n.intValue() : null, id);
         closeTunnel(id); // 配置变更后失效旧隧道
     }
 
@@ -135,7 +151,7 @@ public class SqlConsoleService {
             if (host.isBlank()) {
                 throw new IllegalArgumentException("请填写 SSH 主机");
             }
-            Session session = openSsh(cfg);
+            Session session = openSshFromCfg(cfg);
             String user = String.valueOf(cfg.get("sshUser"));
             String remoteVersion = session.getServerVersion();
             session.disconnect();
@@ -160,17 +176,21 @@ public class SqlConsoleService {
         }
     }
 
-    /** 建立 SSH 会话(认证握手,不建隧道)。 */
-    private Session openSsh(Map<String, Object> cfg) throws Exception {
+    /** 第一跳:按连接配置(sshHost/sshPort/sshUser/sshPassword/sshKeyPath)建立 SSH 会话。 */
+    private Session openSshFromCfg(Map<String, Object> cfg) throws Exception {
+        return openSsh(strOfCfg(cfg, "sshHost"), numOfCfg(cfg, "sshPort", 22),
+                strOfCfg(cfg, "sshUser"), strOfCfg(cfg, "sshPassword"), strOfCfg(cfg, "sshKeyPath"));
+    }
+
+    /** 建立 SSH 会话(认证握手,不建隧道),参数显式,支持第二跳复用。 */
+    private Session openSsh(String host, int port, String user, String password, String keyPath) throws Exception {
         JSch jsch = new JSch();
-        if (cfg.get("sshKeyPath") != null && !String.valueOf(cfg.get("sshKeyPath")).isBlank()) {
-            jsch.addIdentity(String.valueOf(cfg.get("sshKeyPath")));
+        if (keyPath != null && !keyPath.isBlank()) {
+            jsch.addIdentity(keyPath);
         }
-        Session session = jsch.getSession(String.valueOf(cfg.get("sshUser")),
-                String.valueOf(cfg.get("sshHost")),
-                ((Number) cfg.get("sshPort")).intValue());
-        if (cfg.get("sshPassword") != null) {
-            session.setPassword(String.valueOf(cfg.get("sshPassword")));
+        Session session = jsch.getSession(user, host, port);
+        if (password != null) {
+            session.setPassword(password);
         }
         session.setConfig("StrictHostKeyChecking", "no");
         // 与 OpenSSH 客户端惯例一致:优先 keyboard-interactive(PAM/2FA 加固环境
@@ -178,6 +198,15 @@ public class SqlConsoleService {
         session.setConfig("PreferredAuthentications", "keyboard-interactive,password,publickey");
         session.connect(SSH_CONNECT_TIMEOUT_MS);
         return session;
+    }
+
+    private String strOfCfg(Map<String, Object> cfg, String key) {
+        Object v = cfg.get(key);
+        return v == null ? null : String.valueOf(v);
+    }
+
+    private int numOfCfg(Map<String, Object> cfg, String key, int def) {
+        return cfg.get(key) instanceof Number n ? n.intValue() : def;
     }
 
     /** 测试连接:SSH 握手 + 隧道 + 数据库 SELECT 1,分段报错便于定位。 */
@@ -320,7 +349,9 @@ public class SqlConsoleService {
                 SELECT ssh_host AS "sshHost", ssh_port AS "sshPort", ssh_user AS "sshUser",
                        ssh_password AS "sshPassword", ssh_key_path AS "sshKeyPath",
                        db_type AS "dbType", db_host AS "dbHost", db_port AS "dbPort",
-                       db_name AS "dbName", db_user AS "dbUser", db_password AS "dbPassword"
+                       db_name AS "dbName", db_user AS "dbUser", db_password AS "dbPassword",
+                       db_ssh_user AS "dbSshUser", db_ssh_password AS "dbSshPassword",
+                       db_ssh_key_path AS "dbSshKeyPath", db_ssh_port AS "dbSshPort"
                 FROM sql_console_connection WHERE id = ?
                 """, id);
         Exception last = null;
@@ -341,31 +372,65 @@ public class SqlConsoleService {
 
     private Tunnel tunnel(Long id, Map<String, Object> cfg) throws Exception {
         Tunnel cached = tunnels.get(id);
-        if (cached != null && cached.session().isConnected()) {
+        if (cached != null && cached.alive()) {
             return cached;
         }
         tunnels.remove(id);
-        Session session;
+        Session hop1 = null;
+        Session hop2 = null;
         try {
-            session = openSsh(cfg);
-        } catch (ConnectPhaseException e) {
+            // 第一跳:公网跳板机
+            try {
+                hop1 = openSshFromCfg(cfg);
+            } catch (Exception e) {
+                throw new ConnectPhaseException("SSH 连接失败", e.getMessage());
+            }
+            String dbSshUser = strOfCfg(cfg, "dbSshUser");
+            if (dbSshUser != null && !dbSshUser.isBlank()) {
+                // 第二跳:跳板机 → 数据库机 SSH(22 端口) → 在数据库机本地转发数据库端口
+                int l1;
+                try {
+                    l1 = hop1.setPortForwardingL("127.0.0.1", 0,
+                            strOfCfg(cfg, "dbHost"), numOfCfg(cfg, "dbSshPort", 22));
+                } catch (Exception e) {
+                    throw new ConnectPhaseException("第二跳 SSH 转发失败(跳板机→数据库机 " + strOfCfg(cfg, "dbHost") + ":" + numOfCfg(cfg, "dbSshPort", 22) + ")",
+                            e.getMessage());
+                }
+                try {
+                    hop2 = openSsh("127.0.0.1", l1, dbSshUser,
+                            strOfCfg(cfg, "dbSshPassword"), strOfCfg(cfg, "dbSshKeyPath"));
+                } catch (Exception e) {
+                    throw new ConnectPhaseException("第二跳 SSH 认证失败(数据库机 " + dbSshUser + ")", e.getMessage());
+                }
+                int l2;
+                try {
+                    l2 = hop2.setPortForwardingL("127.0.0.1", 0, "127.0.0.1", numOfCfg(cfg, "dbPort", 0));
+                } catch (Exception e) {
+                    throw new ConnectPhaseException("数据库端口转发失败(数据库机本地 " + numOfCfg(cfg, "dbPort", 0) + ")", e.getMessage());
+                }
+                Tunnel t = new Tunnel(hop1, hop2, l2);
+                tunnels.put(id, t);
+                log.info("sql console 2-hop tunnel up: conn={} localPort={}", id, l2);
+                return t;
+            }
+            // 单跳:跳板机直接转发数据库地址
+            int localPort;
+            try {
+                localPort = hop1.setPortForwardingL("127.0.0.1", 0,
+                        strOfCfg(cfg, "dbHost"), numOfCfg(cfg, "dbPort", 0));
+            } catch (Exception e) {
+                throw new ConnectPhaseException("端口转发失败",
+                        e.getMessage() + "(服务器 sshd 可能禁用了 AllowTcpForwarding)");
+            }
+            Tunnel t = new Tunnel(hop1, null, localPort);
+            tunnels.put(id, t);
+            log.info("sql console tunnel up: conn={} localPort={}", id, localPort);
+            return t;
+        } catch (Exception e) {
+            if (hop1 != null) { try { hop1.disconnect(); } catch (Exception ignore) {} }
+            if (hop2 != null) { try { hop2.disconnect(); } catch (Exception ignore) {} }
             throw e;
-        } catch (Exception e) {
-            throw new ConnectPhaseException("SSH 连接失败", e.getMessage());
         }
-        int localPort;
-        try {
-            localPort = session.setPortForwardingL("127.0.0.1", 0,
-                    String.valueOf(cfg.get("dbHost")), ((Number) cfg.get("dbPort")).intValue());
-        } catch (Exception e) {
-            session.disconnect();
-            throw new ConnectPhaseException("端口转发失败",
-                    e.getMessage() + "(服务器 sshd 可能禁用了 AllowTcpForwarding)");
-        }
-        Tunnel t = new Tunnel(session, localPort);
-        tunnels.put(id, t);
-        log.info("sql console tunnel up: conn={} localPort={}", id, localPort);
-        return t;
     }
 
     private Connection openJdbc(int localPort, Map<String, Object> cfg) throws Exception {
@@ -383,7 +448,10 @@ public class SqlConsoleService {
     private void closeTunnel(Long id) {
         Tunnel t = tunnels.remove(id);
         if (t != null) {
-            try { t.session().disconnect(); } catch (Exception ignore) {}
+            try { t.hop1().disconnect(); } catch (Exception ignore) {}
+            if (t.hop2() != null) {
+                try { t.hop2().disconnect(); } catch (Exception ignore) {}
+            }
         }
     }
 

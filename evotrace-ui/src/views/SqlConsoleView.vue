@@ -33,7 +33,8 @@ const dialogOpen = ref(false)
 const editing = ref<SqlConsoleConnection | null>(null)
 const form = ref<Record<string, unknown>>({
   name: '', sshHost: '', sshPort: 22, sshUser: '', sshPassword: '', sshKeyPath: '',
-  dbType: 'postgres', dbHost: '', dbPort: 5432, dbName: '', dbUser: '', dbPassword: ''
+  dbType: 'postgres', dbHost: '', dbPort: 5432, dbName: '', dbUser: '', dbPassword: '',
+  dbSshEnabled: false, dbSshUser: '', dbSshPassword: '', dbSshKeyPath: '', dbSshPort: 22
 })
 const testing = ref(false)
 const testResult = ref('')
@@ -43,27 +44,42 @@ const sshTestResult = ref('')
 function openCreate() {
   editing.value = null
   form.value = { name: '', sshHost: '', sshPort: 22, sshUser: '', sshPassword: '', sshKeyPath: '',
-    dbType: 'postgres', dbHost: '', dbPort: 5432, dbName: '', dbUser: '', dbPassword: '' }
+    dbType: 'postgres', dbHost: '', dbPort: 5432, dbName: '', dbUser: '', dbPassword: '',
+    dbSshEnabled: false, dbSshUser: '', dbSshPassword: '', dbSshKeyPath: '', dbSshPort: 22 }
   testResult.value = ''
+  sshTestResult.value = ''
   dialogOpen.value = true
 }
 
 function openEdit(c: SqlConsoleConnection) {
   editing.value = c
+  const secondHop = !!(c as SqlConsoleConnection & { dbSshUser?: string }).dbSshUser
   form.value = { name: c.name, sshHost: c.sshHost, sshPort: c.sshPort, sshUser: c.sshUser,
     sshPassword: '', sshKeyPath: '', dbType: c.dbType, dbHost: c.dbHost, dbPort: c.dbPort,
-    dbName: c.dbName, dbUser: c.dbUser, dbPassword: '' }
+    dbName: c.dbName, dbUser: c.dbUser, dbPassword: '',
+    dbSshEnabled: secondHop,
+    dbSshUser: (c as SqlConsoleConnection & { dbSshUser?: string }).dbSshUser ?? '',
+    dbSshPassword: '', dbSshKeyPath: '', dbSshPort: (c as SqlConsoleConnection & { dbSshPort?: number }).dbSshPort ?? 22 }
   testResult.value = ''
+  sshTestResult.value = ''
   dialogOpen.value = true
 }
 
 async function saveConnection() {
   try {
+    const payload = { ...form.value }
+    // 第二跳关闭时清空其凭据
+    if (!payload.dbSshEnabled) {
+      payload.dbSshUser = ''
+      payload.dbSshPassword = ''
+      payload.dbSshKeyPath = ''
+    }
+    delete payload.dbSshEnabled
     if (editing.value) {
-      await sqlConsoleApi.update(editing.value.id, form.value)
+      await sqlConsoleApi.update(editing.value.id, payload)
       ElMessage.success('连接已更新')
     } else {
-      const r = await sqlConsoleApi.create(form.value)
+      const r = await sqlConsoleApi.create(payload)
       currentId.value = r.id
       ElMessage.success('连接已创建')
     }
@@ -301,6 +317,23 @@ onMounted(load)
           <el-form-item label="账号" required><el-input v-model="form.dbUser" placeholder="数据库账号" /></el-form-item>
           <el-form-item label="密码" required><el-input v-model="form.dbPassword" type="password" show-password :placeholder="editing?.hasDbPassword ? '留空保持不变' : '数据库密码'" /></el-form-item>
         </div>
+
+        <div class="form-section" style="margin-top: 14px">
+          第二跳 SSH(可选):数据库端口不通时,先 SSH 到数据库服务器再本地转发
+          <el-switch v-model="form.dbSshEnabled" size="small" style="margin-left: 8px" />
+        </div>
+        <template v-if="form.dbSshEnabled">
+          <div class="form-row">
+            <el-form-item label="SSH 主机" required><el-input v-model="form.dbHost" placeholder="数据库服务器内网地址,如 172.25.70.3" /></el-form-item>
+            <el-form-item label="SSH 端口"><el-input-number v-model="form.dbSshPort" :min="1" :max="65535" controls-position="right" style="width: 100%" /></el-form-item>
+          </div>
+          <el-form-item label="SSH 用户" required><el-input v-model="form.dbSshUser" placeholder="数据库服务器的 SSH 账号" /></el-form-item>
+          <div class="form-row">
+            <el-form-item label="SSH 密码"><el-input v-model="form.dbSshPassword" type="password" show-password :placeholder="editing?.hasDbSshPassword ? '留空保持不变' : 'SSH 密码(与私钥二选一)'" /></el-form-item>
+            <el-form-item label="SSH 私钥"><el-input v-model="form.dbSshKeyPath" placeholder="私钥绝对路径(可选)" /></el-form-item>
+          </div>
+          <div class="hop-tip">数据库地址将按「跳板机 → 数据库服务器 SSH → 数据库服务器本地 127.0.0.1:{{ form.dbPort }}」转发</div>
+        </template>
         <div v-if="sshTestResult" class="test-result ssh">{{ sshTestResult }}</div>
         <div v-if="testResult" class="test-result">{{ testResult }}</div>
       </el-form>
@@ -411,6 +444,7 @@ onMounted(load)
 }
 .form-row { display: flex; gap: 12px; }
 .form-row .el-form-item { flex: 1; }
+.hop-tip { font-size: 11.5px; color: var(--et-text-muted); margin: 2px 0 6px 96px; }
 .test-result { font-size: 12.5px; margin-top: 4px; }
 .test-result.ssh { color: var(--et-text-secondary); font-family: ui-monospace, monospace; }
 
