@@ -113,8 +113,8 @@ public class SqlConsoleService {
      *  传 id 时用已保存配置,未保存的字段用 overrides 覆盖(留空不覆盖)。 */
     public Map<String, Object> testSsh(Long id, Map<String, Object> overrides) {
         long t0 = System.currentTimeMillis();
+        Map<String, Object> cfg = new LinkedHashMap<>();
         try {
-            Map<String, Object> cfg = new LinkedHashMap<>();
             if (id != null) {
                 Map<String, Object> saved = jdbc.queryForMap("""
                         SELECT ssh_host AS "sshHost", ssh_port AS "sshPort", ssh_user AS "sshUser",
@@ -148,6 +148,8 @@ public class SqlConsoleService {
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("ok", false);
             String msg = e.getMessage();
+            log.warn("sql console ssh test failed: conn={} host={} error={}", id,
+                    cfg.get("sshHost"), msg);
             if (msg != null && msg.contains("Auth fail")) {
                 msg += "。排查:1) sshd 是否允许 PasswordAuthentication / KbdInteractiveAuthentication;"
                         + "2) 账号密码是否过期或被锁定;3) 若服务器用密钥登录,请配置「SSH 私钥」路径";
@@ -196,9 +198,11 @@ public class SqlConsoleService {
         } catch (ConnectPhaseException cpe) {
             out.put("ok", false);
             out.put("message", cpe.getMessage());
+            log.warn("sql console connection test failed: conn={} error={}", id, cpe.getMessage());
         } catch (Exception e) {
             out.put("ok", false);
             out.put("message", "数据库连接失败: " + e.getMessage());
+            log.warn("sql console connection test failed: conn={} error={}", id, e.getMessage());
         }
         out.put("elapsedMs", System.currentTimeMillis() - t0);
         return out;
@@ -367,15 +371,70 @@ public class SqlConsoleService {
         }
     }
 
-    /** 按行尾分号拆分多条语句(注释与字符串内分号的复杂场景由用户自行合并执行)。 */
+    /** 按分号拆分多条语句:跳过引号字符串、行注释与块注释内的分号,任意位置分号均生效。 */
     private List<String> splitStatements(String sql) {
         List<String> out = new ArrayList<>();
-        for (String part : sql.split(";\\s*(\\r?\\n|$)")) {
-            String s = part.trim();
-            if (!s.isEmpty() && !s.startsWith("--")) {
-                out.add(s);
+        StringBuilder cur = new StringBuilder();
+        char quote = 0;
+        boolean lineComment = false;
+        boolean blockComment = false;
+        for (int i = 0; i < sql.length(); i++) {
+            char c = sql.charAt(i);
+            char n = i + 1 < sql.length() ? sql.charAt(i + 1) : 0;
+            if (lineComment) {
+                cur.append(c);
+                if (c == '\n') lineComment = false;
+                continue;
             }
+            if (blockComment) {
+                if (c == '*' && n == '/') {
+                    blockComment = false;
+                    cur.append(c).append(n);
+                    i++;
+                } else {
+                    cur.append(c);
+                }
+                continue;
+            }
+            if (quote != 0) {
+                cur.append(c);
+                if (c == quote) {
+                    if (n == quote) { // 转义引号(如 '' / "" )
+                        cur.append(n);
+                        i++;
+                    } else {
+                        quote = 0;
+                    }
+                }
+                continue;
+            }
+            if (c == '\'' || c == '"' || c == '`') {
+                quote = c;
+                cur.append(c);
+                continue;
+            }
+            if (c == '-' && n == '-') {
+                lineComment = true;
+                cur.append(c).append(n);
+                i++;
+                continue;
+            }
+            if (c == '/' && n == '*') {
+                blockComment = true;
+                cur.append(c).append(n);
+                i++;
+                continue;
+            }
+            if (c == ';') {
+                String s = cur.toString().trim();
+                if (!s.isEmpty()) out.add(s);
+                cur.setLength(0);
+                continue;
+            }
+            cur.append(c);
         }
+        String tail = cur.toString().trim();
+        if (!tail.isEmpty()) out.add(tail);
         return out;
     }
 
