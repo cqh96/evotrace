@@ -64,6 +64,14 @@ public class SqlConsoleController {
         return Result.ok(service.testSsh(id, body));
     }
 
+    /** 仅测试第二跳 SSH(第一跳隧道 → 数据库服务器 SSH 认证)。 */
+    @PostMapping("/test-ssh2")
+    public Result<Map<String, Object>> testSecondHopSsh(@RequestBody Map<String, Object> body) {
+        Object idRaw = body.remove("id");
+        Long id = idRaw instanceof Number n ? n.longValue() : null;
+        return Result.ok(service.testSecondHopSsh(id, body));
+    }
+
     @PostMapping("/connections/{id}/execute")
     public Result<List<Map<String, Object>>> execute(@PathVariable Long id,
                                                      @RequestBody Map<String, Object> body) {

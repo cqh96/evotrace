@@ -90,6 +90,35 @@ async function saveConnection() {
   }
 }
 
+const testingSsh2 = ref(false)
+const ssh2TestResult = ref('')
+
+/** 仅测试第二跳 SSH(第一跳隧道 → 数据库服务器 SSH 认证)。 */
+async function testSecondHopSshConnection() {
+  testingSsh2.value = true
+  ssh2TestResult.value = ''
+  try {
+    const res = await sqlConsoleApi.testSsh2({
+      id: editing.value?.id ?? null,
+      sshHost: form.value.sshHost,
+      sshPort: form.value.sshPort,
+      sshUser: form.value.sshUser,
+      sshPassword: form.value.sshPassword,
+      sshKeyPath: form.value.sshKeyPath,
+      dbHost: form.value.dbHost,
+      dbSshPort: form.value.dbSshPort,
+      dbSshUser: form.value.dbSshUser,
+      dbSshPassword: form.value.dbSshPassword,
+      dbSshKeyPath: form.value.dbSshKeyPath
+    })
+    ssh2TestResult.value = `${res.ok ? '✅' : '❌'} ${res.message}(${res.elapsedMs}ms)`
+  } catch (e: any) {
+    ssh2TestResult.value = `❌ ${e?.response?.data?.message || '测试失败'}`
+  } finally {
+    testingSsh2.value = false
+  }
+}
+
 /** 仅测试 SSH 握手(用表单当前值,已保存连接的留空字段回退到库内配置)。 */
 async function testSshConnection() {
   testingSsh.value = true
@@ -321,6 +350,10 @@ onMounted(load)
         <div class="form-section" style="margin-top: 14px">
           第二跳 SSH(可选):数据库端口不通时,先 SSH 到数据库服务器再本地转发
           <el-switch v-model="form.dbSshEnabled" size="small" style="margin-left: 8px" />
+          <el-button v-if="form.dbSshEnabled" size="small" :loading="testingSsh2"
+                     style="margin-left: 8px" @click="testSecondHopSshConnection">
+            测试第二跳
+          </el-button>
         </div>
         <template v-if="form.dbSshEnabled">
           <div class="form-row">
@@ -333,6 +366,7 @@ onMounted(load)
             <el-form-item label="SSH 私钥"><el-input v-model="form.dbSshKeyPath" placeholder="私钥绝对路径(可选)" /></el-form-item>
           </div>
           <div class="hop-tip">数据库地址将按「跳板机 → 数据库服务器 SSH → 数据库服务器本地 127.0.0.1:{{ form.dbPort }}」转发</div>
+          <div v-if="ssh2TestResult" class="test-result ssh" style="margin: 2px 0 6px 96px">{{ ssh2TestResult }}</div>
         </template>
         <div v-if="sshTestResult" class="test-result ssh">{{ sshTestResult }}</div>
         <div v-if="testResult" class="test-result">{{ testResult }}</div>

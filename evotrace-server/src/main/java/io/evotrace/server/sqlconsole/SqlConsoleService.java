@@ -182,6 +182,71 @@ public class SqlConsoleService {
                 strOfCfg(cfg, "sshUser"), strOfCfg(cfg, "sshPassword"), strOfCfg(cfg, "sshKeyPath"));
     }
 
+    /** 测试第二跳 SSH:第一跳建隧道 → 经隧道 SSH 数据库服务器,验证其可达性与认证。
+     *  传 id 时用已保存配置,未保存的字段用 overrides 覆盖(留空不覆盖)。 */
+    public Map<String, Object> testSecondHopSsh(Long id, Map<String, Object> overrides) {
+        long t0 = System.currentTimeMillis();
+        Map<String, Object> cfg = new LinkedHashMap<>();
+        try {
+            if (id != null) {
+                cfg.putAll(jdbc.queryForMap("""
+                        SELECT ssh_host AS "sshHost", ssh_port AS "sshPort", ssh_user AS "sshUser",
+                               ssh_password AS "sshPassword", ssh_key_path AS "sshKeyPath",
+                               db_host AS "dbHost", db_ssh_user AS "dbSshUser", db_ssh_password AS "dbSshPassword",
+                               db_ssh_key_path AS "dbSshKeyPath", db_ssh_port AS "dbSshPort"
+                        FROM sql_console_connection WHERE id = ?
+                        """, id));
+            }
+            if (overrides != null) {
+                for (Map.Entry<String, Object> e : overrides.entrySet()) {
+                    Object v = e.getValue();
+                    if (v != null && !String.valueOf(v).isBlank()) {
+                        cfg.put(e.getKey(), v);
+                    }
+                }
+            }
+            String dbSshUser = strOfCfg(cfg, "dbSshUser");
+            if (dbSshUser == null || dbSshUser.isBlank()) {
+                throw new IllegalArgumentException("请先填写第二跳 SSH 用户");
+            }
+            String dbHost = strOfCfg(cfg, "dbHost");
+            Session hop1 = null;
+            Session hop2 = null;
+            try {
+                hop1 = openSshFromCfg(cfg);
+                int l1 = hop1.setPortForwardingL("127.0.0.1", 0, dbHost, numOfCfg(cfg, "dbSshPort", 22));
+                hop2 = openSsh("127.0.0.1", l1, dbSshUser,
+                        strOfCfg(cfg, "dbSshPassword"), strOfCfg(cfg, "dbSshKeyPath"));
+                String ver = hop2.getServerVersion();
+                Map<String, Object> out = new LinkedHashMap<>();
+                out.put("ok", true);
+                out.put("message", "第二跳 SSH 连接成功(" + dbSshUser + "@" + dbHost + ",服务端 " + ver + ")");
+                out.put("elapsedMs", System.currentTimeMillis() - t0);
+                return out;
+            } catch (Exception e) {
+                Map<String, Object> out = new LinkedHashMap<>();
+                out.put("ok", false);
+                String msg = e.getMessage();
+                if (msg != null && msg.contains("Auth fail")) {
+                    msg += "。排查:数据库服务器 sshd 认证配置/密码是否正确/账号是否被 fail2ban 锁定";
+                }
+                out.put("message", msg);
+                out.put("elapsedMs", System.currentTimeMillis() - t0);
+                log.warn("sql console 2nd-hop ssh test failed: conn={} dbHost={} error={}", id, dbHost, msg);
+                return out;
+            } finally {
+                if (hop1 != null) { try { hop1.disconnect(); } catch (Exception ignore) {} }
+                if (hop2 != null) { try { hop2.disconnect(); } catch (Exception ignore) {} }
+            }
+        } catch (Exception e) {
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("ok", false);
+            out.put("message", e.getMessage());
+            out.put("elapsedMs", System.currentTimeMillis() - t0);
+            return out;
+        }
+    }
+
     /** 建立 SSH 会话(认证握手,不建隧道),参数显式,支持第二跳复用。 */
     private Session openSsh(String host, int port, String user, String password, String keyPath) throws Exception {
         JSch jsch = new JSch();
@@ -202,7 +267,9 @@ public class SqlConsoleService {
 
     private String strOfCfg(Map<String, Object> cfg, String key) {
         Object v = cfg.get(key);
-        return v == null ? null : String.valueOf(v);
+        if (v == null) return null;
+        String s = String.valueOf(v).trim();
+        return s.isEmpty() ? null : s;
     }
 
     private int numOfCfg(Map<String, Object> cfg, String key, int def) {
@@ -541,7 +608,9 @@ public class SqlConsoleService {
 
     private String strOf(Map<String, Object> body, String key) {
         Object v = body.get(key);
-        return v == null ? null : String.valueOf(v);
+        if (v == null) return null;
+        String s = String.valueOf(v).trim();
+        return s.isEmpty() ? null : s;
     }
 
     private int intOf(Map<String, Object> body, String key, int def) {
