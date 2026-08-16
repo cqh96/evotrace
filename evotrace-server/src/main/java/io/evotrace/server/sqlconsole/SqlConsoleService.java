@@ -178,27 +178,36 @@ public class SqlConsoleService {
         return session;
     }
 
-    /** 测试连接:SSH 握手 + 数据库 SELECT 1。 */
+    /** 测试连接:SSH 握手 + 隧道 + 数据库 SELECT 1,分段报错便于定位。 */
     public Map<String, Object> test(Long id) {
         long t0 = System.currentTimeMillis();
+        Map<String, Object> out = new LinkedHashMap<>();
         try (var ctx = connect(id)) {
             try (Statement st = ctx.connection().createStatement()) {
                 st.setQueryTimeout(10);
                 try (ResultSet rs = st.executeQuery("SELECT 1")) {
                     rs.next();
-                    Map<String, Object> out = new LinkedHashMap<>();
                     out.put("ok", true);
-                    out.put("message", "连接成功(SSH + " + dbTypeOf(id) + ")");
+                    out.put("message", "连接成功(SSH + 隧道 + " + dbTypeOf(id) + ")");
                     out.put("elapsedMs", System.currentTimeMillis() - t0);
                     return out;
                 }
             }
-        } catch (Exception e) {
-            Map<String, Object> out = new LinkedHashMap<>();
+        } catch (ConnectPhaseException cpe) {
             out.put("ok", false);
-            out.put("message", e.getMessage());
-            out.put("elapsedMs", System.currentTimeMillis() - t0);
-            return out;
+            out.put("message", cpe.getMessage());
+        } catch (Exception e) {
+            out.put("ok", false);
+            out.put("message", "数据库连接失败: " + e.getMessage());
+        }
+        out.put("elapsedMs", System.currentTimeMillis() - t0);
+        return out;
+    }
+
+    /** 连接分段异常:标明失败发生在 SSH / 隧道 / 哪一段。 */
+    private static class ConnectPhaseException extends Exception {
+        ConnectPhaseException(String phase, String detail) {
+            super(phase + ": " + detail);
         }
     }
 
@@ -219,7 +228,7 @@ public class SqlConsoleService {
             log.warn("sql console connect failed for conn {}: {}", id, e.getMessage());
             Map<String, Object> r = new LinkedHashMap<>();
             r.put("sql", sql);
-            r.put("error", "连接失败: " + e.getMessage());
+            r.put("error", e instanceof ConnectPhaseException ? e.getMessage() : "数据库连接失败: " + e.getMessage());
             results.add(r);
         }
         return results;
@@ -291,6 +300,8 @@ public class SqlConsoleService {
                 Tunnel tunnel = tunnel(id, cfg);
                 Connection conn = openJdbc(tunnel.localPort(), cfg);
                 return new Ctx(tunnel, conn);
+            } catch (ConnectPhaseException e) {
+                throw e; // 阶段明确(SSH/隧道)不重试,直接带诊断信息返回
             } catch (Exception e) {
                 last = e;
                 closeTunnel(id); // 隧道可能已死,重连一次
@@ -305,9 +316,23 @@ public class SqlConsoleService {
             return cached;
         }
         tunnels.remove(id);
-        Session session = openSsh(cfg);
-        int localPort = session.setPortForwardingL("127.0.0.1", 0,
-                String.valueOf(cfg.get("dbHost")), ((Number) cfg.get("dbPort")).intValue());
+        Session session;
+        try {
+            session = openSsh(cfg);
+        } catch (ConnectPhaseException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ConnectPhaseException("SSH 连接失败", e.getMessage());
+        }
+        int localPort;
+        try {
+            localPort = session.setPortForwardingL("127.0.0.1", 0,
+                    String.valueOf(cfg.get("dbHost")), ((Number) cfg.get("dbPort")).intValue());
+        } catch (Exception e) {
+            session.disconnect();
+            throw new ConnectPhaseException("端口转发失败",
+                    e.getMessage() + "(服务器 sshd 可能禁用了 AllowTcpForwarding)");
+        }
         Tunnel t = new Tunnel(session, localPort);
         tunnels.put(id, t);
         log.info("sql console tunnel up: conn={} localPort={}", id, localPort);
