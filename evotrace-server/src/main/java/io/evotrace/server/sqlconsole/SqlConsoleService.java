@@ -201,11 +201,36 @@ public class SqlConsoleService {
             log.warn("sql console connection test failed: conn={} error={}", id, cpe.getMessage());
         } catch (Exception e) {
             out.put("ok", false);
-            out.put("message", "数据库连接失败: " + e.getMessage());
-            log.warn("sql console connection test failed: conn={} error={}", id, e.getMessage());
+            String msg = e.getMessage();
+            if (msg != null && msg.contains("Communications link failure")) {
+                msg += "。数据库无响应:从跳板机验证可达性—— ssh 登录后执行 "
+                        + "nc -z " + dbHostOf(id) + " " + dbPortOf(id)
+                        + ";若数据库与跳板机同机且只监听 127.0.0.1,请把「数据库主机」改为 127.0.0.1";
+            }
+            out.put("message", "数据库连接失败: " + msg);
+            log.warn("sql console connection test failed: conn={} error={}", id, msg);
         }
         out.put("elapsedMs", System.currentTimeMillis() - t0);
         return out;
+    }
+
+    private String dbHostOf(Long id) {
+        try {
+            return jdbc.queryForObject("SELECT db_host FROM sql_console_connection WHERE id = ?",
+                    String.class, id);
+        } catch (Exception e) {
+            return "<dbHost>";
+        }
+    }
+
+    private int dbPortOf(Long id) {
+        try {
+            Integer p = jdbc.queryForObject("SELECT db_port FROM sql_console_connection WHERE id = ?",
+                    Integer.class, id);
+            return p != null ? p : 3306;
+        } catch (Exception e) {
+            return 3306;
+        }
     }
 
     /** 连接分段异常:标明失败发生在 SSH / 隧道 / 哪一段。 */
