@@ -147,7 +147,12 @@ public class SqlConsoleService {
         } catch (Exception e) {
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("ok", false);
-            out.put("message", e.getMessage());
+            String msg = e.getMessage();
+            if (msg != null && msg.contains("Auth fail")) {
+                msg += "。排查:1) sshd 是否允许 PasswordAuthentication / KbdInteractiveAuthentication;"
+                        + "2) 账号密码是否过期或被锁定;3) 若服务器用密钥登录,请配置「SSH 私钥」路径";
+            }
+            out.put("message", msg);
             out.put("elapsedMs", System.currentTimeMillis() - t0);
             return out;
         }
@@ -166,7 +171,9 @@ public class SqlConsoleService {
             session.setPassword(String.valueOf(cfg.get("sshPassword")));
         }
         session.setConfig("StrictHostKeyChecking", "no");
-        session.setConfig("PreferredAuthentications", "password,publickey,keyboard-interactive");
+        // 与 OpenSSH 客户端惯例一致:优先 keyboard-interactive(PAM/2FA 加固环境
+        // 常只允许这种方式),再 password、publickey
+        session.setConfig("PreferredAuthentications", "keyboard-interactive,password,publickey");
         session.connect(SSH_CONNECT_TIMEOUT_MS);
         return session;
     }
