@@ -52,6 +52,7 @@ export interface CompareReport {
   dependencies: unknown[]
   configs: unknown[]
   schemas: unknown[]
+  plugins?: unknown[]
 }
 
 export interface QaReference {

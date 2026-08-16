@@ -79,6 +79,14 @@ public class ParserPluginRegistry {
         return plugins.get(pluginId);
     }
 
+    /** 是否有指定类别的已注册插件(供管线在读取重输入前快速判断)。 */
+    public boolean has(ParserPlugin.Category category) {
+        for (ParserPlugin p : plugins.values()) {
+            if (p.category() == category) return true;
+        }
+        return false;
+    }
+
     /** 列出全部已注册插件。 */
     public List<ParserPlugin> all() {
         return List.copyOf(plugins.values());

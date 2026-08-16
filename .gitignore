@@ -27,3 +27,6 @@ Thumbs.db
 .evotrace-self-state
 scripts/.self-monitor.env
 
+
+# Runtime data
+evotrace-server/data/

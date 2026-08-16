@@ -75,25 +75,36 @@ public class InventorySnapshotProvider implements SnapshotItemProvider {
         }
         Map<String, Object> report = reports.get(0);
         List<SnapshotDraft> drafts = new ArrayList<>();
-        try {
-            // pgjdbc returns jsonb columns as PGobject, not String
-            collectApis(jsonString(report.get("api_json")), drafts);
-            collectDependencies(jsonString(report.get("dependency_json")), drafts);
-            collectConfigs(jsonString(report.get("config_json")), drafts);
-            collectDdl(jsonString(report.get("ddl_json")), drafts);
-            // 插件解析:内置解析完成后,让市场安装的插件对原始清单再做扩展解析
-            collectPluginItems(ParserPlugin.Category.API,
-                    jsonString(report.get("api_json")), "inventory:apis", drafts);
-            collectPluginItems(ParserPlugin.Category.DEPENDENCY,
-                    jsonString(report.get("dependency_json")), "inventory:dependencies", drafts);
-            collectPluginItems(ParserPlugin.Category.CONFIG,
-                    jsonString(report.get("config_json")), "inventory:configs", drafts);
-            collectPluginItems(ParserPlugin.Category.DDL,
-                    jsonString(report.get("ddl_json")), "inventory:ddl", drafts);
-        } catch (Exception e) {
-            log.warn("failed to parse inventory report for app {}: {}", appId, e.getMessage());
-        }
+        // pgjdbc returns jsonb columns as PGobject, not String
+        String apiJson = jsonString(report.get("api_json"));
+        String dependencyJson = jsonString(report.get("dependency_json"));
+        String configJson = jsonString(report.get("config_json"));
+        String ddlJson = jsonString(report.get("ddl_json"));
+        // 每节独立容错:私有格式(内置解析器不认识)只影响本节,
+        // 不影响其他节,也不影响插件对原始清单的扩展解析
+        runQuietly("apis", () -> collectApis(apiJson, drafts));
+        runQuietly("dependencies", () -> collectDependencies(dependencyJson, drafts));
+        runQuietly("configs", () -> collectConfigs(configJson, drafts));
+        runQuietly("ddl", () -> collectDdl(ddlJson, drafts));
+        // 插件解析:内置解析完成后,让市场安装的插件对原始清单再做扩展解析
+        collectPluginItems(ParserPlugin.Category.API, apiJson, "inventory:apis", drafts);
+        collectPluginItems(ParserPlugin.Category.DEPENDENCY, dependencyJson, "inventory:dependencies", drafts);
+        collectPluginItems(ParserPlugin.Category.CONFIG, configJson, "inventory:configs", drafts);
+        collectPluginItems(ParserPlugin.Category.DDL, ddlJson, "inventory:ddl", drafts);
         return drafts;
+    }
+
+    private void runQuietly(String section, ThrowingRunnable r) {
+        try {
+            r.run();
+        } catch (Exception e) {
+            log.warn("inventory section {} parse skipped: {}", section, e.getMessage());
+        }
+    }
+
+    @FunctionalInterface
+    private interface ThrowingRunnable {
+        void run() throws Exception;
     }
 
     /** 调用指定类别的已注册插件解析原始清单,产物以带溯源信息并入快照草稿。 */
@@ -104,9 +115,20 @@ public class InventorySnapshotProvider implements SnapshotItemProvider {
             for (ParserPluginRegistry.PluginItem pi : pluginRegistry.parse(category, rawJson, feature)) {
                 ParserPlugin.ParseItem item = pi.item();
                 Map<String, Object> content = new java.util.LinkedHashMap<>();
-                content.put("detail", item.detail());
                 content.put("source", "plugin");
                 content.put("pluginId", pi.pluginId());
+                if (item.detail() != null) content.put("detail", item.detail());
+                // detail 若是 JSON 对象,展开为顶层字段,使标准检测器
+                // (signatureHash/schemaFingerprint/columns 等)能读取插件产物的结构化信息
+                if (item.detail() instanceof String s && s.trim().startsWith("{")) {
+                    try {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> structured = mapper.readValue(s, Map.class);
+                        content.putAll(structured);
+                    } catch (Exception ignore) {
+                        // detail 不是合法 JSON 对象,仅保留原始字符串
+                    }
+                }
                 drafts.add(new SnapshotDraft(item.type(), item.name(), content));
             }
         } catch (Exception e) {

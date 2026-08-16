@@ -63,6 +63,8 @@ public class CompareController {
         List<Map<String, Object>> dependencies = querySnapshotDiff(projectKey, from, to, "DEPENDENCY");
         List<Map<String, Object>> configs = querySnapshotDiff(projectKey, from, to, "CONFIG");
         List<Map<String, Object>> schemas = querySnapshotDiff(projectKey, from, to, "SCHEMA");
+        // 插件产物(任意类别,source=plugin):对比页「插件解析」tab
+        List<Map<String, Object>> plugins = queryPluginDiff(projectKey, from, to);
 
         return Result.ok(Map.of(
                 "fromVersion", from,
@@ -72,14 +74,15 @@ public class CompareController {
                 "apis", apis,
                 "dependencies", dependencies,
                 "configs", configs,
-                "schemas", schemas));
+                "schemas", schemas,
+                "plugins", plugins));
     }
 
     private List<Map<String, Object>> querySnapshotDiff(String projectKey, String from, String to, String category) {
         try {
             return jdbcTemplate.queryForList("""
                     SELECT si.identity_key AS "identityKey",
-                           COALESCE(t.change_flag, 'UNCHANGED') AS "changeFlag",
+                           COALESCE(r.change_flag, 'UNCHANGED') AS "changeFlag",
                            si.content_json AS content
                     FROM snapshot_item si
                     JOIN snapshot_item_ref r ON r.item_hash = si.content_hash
@@ -88,6 +91,28 @@ public class CompareController {
                     JOIN project p ON p.id = rel.project_id AND p.project_key = ?
                     WHERE rel.version = ? AND si.category = ?
                     """, projectKey, to, category);
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    /** 插件解析产物:任意类别、content_json.source = 'plugin' 的快照项。 */
+    private List<Map<String, Object>> queryPluginDiff(String projectKey, String from, String to) {
+        try {
+            return jdbcTemplate.queryForList("""
+                    SELECT si.identity_key AS "identityKey",
+                           COALESCE(r.change_flag, 'UNCHANGED') AS "changeFlag",
+                           si.category,
+                           si.content_json->>'pluginId' AS "pluginId",
+                           si.content_json->>'detail' AS "detail"
+                    FROM snapshot_item si
+                    JOIN snapshot_item_ref r ON r.item_hash = si.content_hash
+                    JOIN snapshot s ON s.id = r.snapshot_id
+                    JOIN release rel ON rel.id = s.release_id
+                    JOIN project p ON p.id = rel.project_id AND p.project_key = ?
+                    WHERE rel.version = ? AND si.content_json->>'source' = 'plugin'
+                    ORDER BY si.category, si.identity_key
+                    """, projectKey, to);
         } catch (Exception e) {
             return List.of();
         }

@@ -41,6 +41,7 @@ const report = ref<CompareReport>({
   schemas: [
     { identityKey: 'order_timeout_rule.channel', changeFlag: 'ADDED', after: 'varchar(32) + uk_rule_channel' }
   ],
+  plugins: [],
   stats: { filesChanged: 47, addLines: 1820, delLines: 640, commits: 23 },
   changes: []
 })
@@ -116,8 +117,8 @@ function swapVersions() {
 // 统计各变更标记数量（新增 / 修改 / 删除）
 const diffCounts = computed(() => {
   const c: Record<string, number> = { ADDED: 0, MODIFIED: 0, REMOVED: 0 }
-  for (const k of ['apis', 'dependencies', 'configs', 'schemas'] as const) {
-    for (const it of report.value[k] as unknown[]) {
+  for (const k of ['apis', 'dependencies', 'configs', 'schemas', 'plugins'] as const) {
+    for (const it of (report.value[k] as unknown[]) ?? []) {
       const f = (it as { changeFlag?: string }).changeFlag
       if (f && f in c) c[f]++
     }
@@ -128,7 +129,7 @@ const diffCounts = computed(() => {
 // 全部清单项总数
 const totalItems = computed(() => {
   let n = 0
-  for (const k of ['apis', 'dependencies', 'configs', 'schemas'] as const) n += ((report.value[k] as unknown[])?.length ?? 0)
+  for (const k of ['apis', 'dependencies', 'configs', 'schemas', 'plugins'] as const) n += ((report.value[k] as unknown[])?.length ?? 0)
   return n
 })
 
@@ -139,7 +140,7 @@ const rowClass = ({ row }: { row: unknown }) =>
   'diff-' + String((row as { changeFlag?: string }).changeFlag ?? 'UNCHANGED').toLowerCase()
 
 // Tab 图标（图标为全局注册，无需导入）
-const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Box', configs: 'Setting', schemas: 'DataLine' }
+const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Box', configs: 'Setting', schemas: 'DataLine', plugins: 'MagicStick' }
 </script>
 
 <template>
@@ -216,7 +217,7 @@ const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Bo
       <div class="et-card-body no-padding">
         <el-tabs v-model="activeTab" class="compare-tabs">
           <el-tab-pane
-            v-for="t in [{k:'apis',l:'接口'},{k:'dependencies',l:'依赖'},{k:'configs',l:'配置'},{k:'schemas',l:'DDL'}]"
+            v-for="t in [{k:'apis',l:'接口'},{k:'dependencies',l:'依赖'},{k:'configs',l:'配置'},{k:'schemas',l:'DDL'},{k:'plugins',l:'插件解析'}]"
             :key="t.k" :name="t.k"
           >
             <template #label>
@@ -226,7 +227,22 @@ const tabIcons: Record<string, string> = { apis: 'Connection', dependencies: 'Bo
               </span>
             </template>
             <div class="tab-content">
-              <el-table :data="report[t.k as 'apis']" :row-class-name="rowClass">
+              <el-table v-if="t.k === 'plugins'" :data="report.plugins ?? []" :row-class-name="rowClass">
+                <el-table-column prop="identityKey" label="清单项" min-width="260" show-overflow-tooltip />
+                <el-table-column label="类别" width="110">
+                  <template #default="{ row }"><span class="type-text">{{ row.category }}</span></template>
+                </el-table-column>
+                <el-table-column prop="pluginId" label="插件" min-width="200" show-overflow-tooltip />
+                <el-table-column label="变化" width="100">
+                  <template #default="{ row }">
+                    <span class="flag-mark" :class="'flag-' + String(row.changeFlag).toLowerCase()">
+                      <i></i>{{ flagLabel(row.changeFlag) }}
+                    </span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="detail" label="详情" min-width="220" show-overflow-tooltip />
+              </el-table>
+              <el-table v-else :data="report[t.k as 'apis']" :row-class-name="rowClass">
                 <el-table-column prop="identityKey" label="清单项" min-width="280" show-overflow-tooltip />
                 <el-table-column label="变化" width="110">
                   <template #default="{ row }">
