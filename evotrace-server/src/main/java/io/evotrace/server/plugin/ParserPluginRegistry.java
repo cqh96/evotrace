@@ -83,4 +83,29 @@ public class ParserPluginRegistry {
     public List<ParserPlugin> all() {
         return List.copyOf(plugins.values());
     }
+
+    /** 带溯源的插件解析结果项。 */
+    public record PluginItem(String pluginId, ParserPlugin.ParseItem item) {}
+
+    /**
+     * 让指定类别的已注册插件解析输入，返回归一化清单项。
+     * 单个插件抛异常只记日志，不影响其余插件与内置解析。
+     */
+    public List<PluginItem> parse(ParserPlugin.Category category, String input, String feature) {
+        List<PluginItem> out = new java.util.ArrayList<>();
+        for (ParserPlugin p : plugins.values()) {
+            if (p.category() != category) continue;
+            try {
+                List<ParserPlugin.ParseItem> items = p.parse(input, feature);
+                if (items != null) {
+                    for (ParserPlugin.ParseItem item : items) {
+                        out.add(new PluginItem(p.id(), item));
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("plugin {} parse failed on {}: {}", p.id(), feature, e.getMessage());
+            }
+        }
+        return out;
+    }
 }

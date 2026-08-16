@@ -1,6 +1,8 @@
 package io.evotrace.server.snapshot;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.evotrace.server.plugin.ParserPlugin;
+import io.evotrace.server.plugin.ParserPluginRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -36,9 +38,11 @@ public class InventorySnapshotProvider implements SnapshotItemProvider {
             Pattern.compile("(?:ADD COLUMN|DROP COLUMN|ADD|DROP)\\s+([\\w\\.]+)", Pattern.CASE_INSENSITIVE);
 
     private final JdbcTemplate jdbc;
+    private final ParserPluginRegistry pluginRegistry;
 
-    public InventorySnapshotProvider(JdbcTemplate jdbc) {
+    public InventorySnapshotProvider(JdbcTemplate jdbc, ParserPluginRegistry pluginRegistry) {
         this.jdbc = jdbc;
+        this.pluginRegistry = pluginRegistry;
     }
 
     @Override
@@ -77,10 +81,37 @@ public class InventorySnapshotProvider implements SnapshotItemProvider {
             collectDependencies(jsonString(report.get("dependency_json")), drafts);
             collectConfigs(jsonString(report.get("config_json")), drafts);
             collectDdl(jsonString(report.get("ddl_json")), drafts);
+            // 插件解析:内置解析完成后,让市场安装的插件对原始清单再做扩展解析
+            collectPluginItems(ParserPlugin.Category.API,
+                    jsonString(report.get("api_json")), "inventory:apis", drafts);
+            collectPluginItems(ParserPlugin.Category.DEPENDENCY,
+                    jsonString(report.get("dependency_json")), "inventory:dependencies", drafts);
+            collectPluginItems(ParserPlugin.Category.CONFIG,
+                    jsonString(report.get("config_json")), "inventory:configs", drafts);
+            collectPluginItems(ParserPlugin.Category.DDL,
+                    jsonString(report.get("ddl_json")), "inventory:ddl", drafts);
         } catch (Exception e) {
             log.warn("failed to parse inventory report for app {}: {}", appId, e.getMessage());
         }
         return drafts;
+    }
+
+    /** 调用指定类别的已注册插件解析原始清单,产物以带溯源信息并入快照草稿。 */
+    private void collectPluginItems(ParserPlugin.Category category,
+                                    String rawJson, String feature, List<SnapshotDraft> drafts) {
+        if (rawJson == null || rawJson.isBlank()) return;
+        try {
+            for (ParserPluginRegistry.PluginItem pi : pluginRegistry.parse(category, rawJson, feature)) {
+                ParserPlugin.ParseItem item = pi.item();
+                Map<String, Object> content = new java.util.LinkedHashMap<>();
+                content.put("detail", item.detail());
+                content.put("source", "plugin");
+                content.put("pluginId", pi.pluginId());
+                drafts.add(new SnapshotDraft(item.type(), item.name(), content));
+            }
+        } catch (Exception e) {
+            log.warn("plugin parse failed on {}: {}", feature, e.getMessage());
+        }
     }
 
     /** PGobject → JSON text; NULL stays NULL. */
