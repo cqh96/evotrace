@@ -38,13 +38,14 @@ public class PerformanceTestController {
         return Result.ok(perfService.list(projectId(projectKey)));
     }
 
-    public record CreateBody(Long endpointId, String name, Integer concurrency, Integer durationSec) {}
+    public record CreateBody(Long endpointId, String name, Integer concurrency, Integer durationSec, String baseUrl) {}
 
     @PostMapping
     public Result<Map<String, Object>> create(@PathVariable String projectKey, @RequestBody CreateBody body) {
         Long id = perfService.create(projectId(projectKey), body.endpointId(), body.name(),
                 body.concurrency() != null ? body.concurrency() : 10,
-                body.durationSec() != null ? body.durationSec() : 30);
+                body.durationSec() != null ? body.durationSec() : 30,
+                body.baseUrl());
         return Result.ok(Map.of("id", id));
     }
 

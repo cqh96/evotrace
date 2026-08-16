@@ -59,10 +59,14 @@ public class TestReportService {
                        share_token AS "shareToken", created_by AS "createdBy", created_at AS "createdAt"
                 FROM test_report WHERE id = ? AND project_id = ?
                 """, reportId, projectId);
-        @SuppressWarnings("unchecked")
-        Map<String, Object> summary = report.get("summary") instanceof String s
-                ? readMap(s) : (Map<String, Object>) report.get("summary");
-        summary.put("coverage", caseService.traceMatrix(projectId, firstRequirementOfPlan(reportId)).get("coverage"));
+        Map<String, Object> summary = readSummary(report.get("summary"));
+        Long reqId = firstRequirementOfPlan(reportId);
+        if (reqId != null) {
+            summary.put("coverage", caseService.traceMatrix(projectId, reqId).get("coverage"));
+        } else {
+            // 计划未关联需求时给出零值覆盖度，避免 traceMatrix(null) 空查询抛 404
+            summary.put("coverage", Map.of("total", 0, "passed", 0, "failed", 0, "pending", 0, "openBugs", 0));
+        }
         report.put("summary", summary);
         return report;
     }
@@ -74,10 +78,7 @@ public class TestReportService {
                        summary_json AS "summary", created_at AS "createdAt"
                 FROM test_report WHERE share_token = ?
                 """, token);
-        @SuppressWarnings("unchecked")
-        Map<String, Object> summary = report.get("summary") instanceof String s
-                ? readMap(s) : (Map<String, Object>) report.get("summary");
-        report.put("summary", summary);
+        report.put("summary", readSummary(report.get("summary")));
         return report;
     }
 
@@ -106,6 +107,13 @@ public class TestReportService {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /** pgjdbc 对 jsonb 列返回 PGobject（toString 即 JSON 文本），统一解析为 Map。 */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> readSummary(Object raw) {
+        if (raw instanceof Map<?, ?> m) return (Map<String, Object>) m;
+        return readMap(raw == null ? null : String.valueOf(raw));
     }
 
     private Map<String, Object> readMap(String s) {

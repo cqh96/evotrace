@@ -25,6 +25,14 @@ public class TraceRebuildService {
         this.linkService = linkService;
     }
 
+    /** pgjdbc 对 timestamptz 返回 java.sql.Timestamp，统一转为 OffsetDateTime（UTC）。 */
+    private static OffsetDateTime toOffsetDateTime(Object value) {
+        if (value instanceof java.sql.Timestamp ts) {
+            return ts.toInstant().atOffset(java.time.ZoneOffset.UTC);
+        }
+        return (OffsetDateTime) value;
+    }
+
     /**
      * 重算某 release 的 SHIPPED_IN 边。
      * 时间窗（同一 app_id）：prev.released_at &lt; change.occurred_at ≤ curr.released_at；
@@ -34,7 +42,7 @@ public class TraceRebuildService {
     public int rebuildChangeset(Long projectId, Long releaseId) {
         Map<String, Object> rel = jdbc.queryForMap("SELECT * FROM release WHERE id = ? AND project_id = ?",
                 releaseId, projectId);
-        OffsetDateTime curr = (OffsetDateTime) rel.get("released_at");
+        OffsetDateTime curr = toOffsetDateTime(rel.get("released_at"));
         Long appId = rel.get("app_id") instanceof Number n ? n.longValue() : null;
 
         for (Map<String, Object> change : changesInWindow(projectId, releaseId, appId, curr)) {
@@ -61,7 +69,7 @@ public class TraceRebuildService {
     public List<Map<String, Object>> changesInWindow(Long projectId, Long releaseId) {
         Map<String, Object> rel = jdbc.queryForMap("SELECT * FROM release WHERE id = ? AND project_id = ?",
                 releaseId, projectId);
-        OffsetDateTime curr = (OffsetDateTime) rel.get("released_at");
+        OffsetDateTime curr = toOffsetDateTime(rel.get("released_at"));
         Long appId = rel.get("app_id") instanceof Number n ? n.longValue() : null;
         return changesInWindow(projectId, releaseId, appId, curr);
     }
@@ -107,7 +115,7 @@ public class TraceRebuildService {
     private int countInWindow(Long projectId, Long releaseId) {
         Map<String, Object> rel = jdbc.queryForMap("SELECT * FROM release WHERE id = ? AND project_id = ?",
                 releaseId, projectId);
-        OffsetDateTime curr = (OffsetDateTime) rel.get("released_at");
+        OffsetDateTime curr = toOffsetDateTime(rel.get("released_at"));
         Long appId = rel.get("app_id") instanceof Number n ? n.longValue() : null;
         OffsetDateTime prev = previousReleasedAt(projectId, releaseId, appId, curr);
         String appFilter = appId != null ? " AND app_id = ? " : "";

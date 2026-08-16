@@ -91,8 +91,21 @@ public class UiTestService {
     /** 执行 UI 用例（同步阻塞）。返回逐步结果并落库。 */
     public Map<String, Object> run(Long projectId, Long id) {
         Map<String, Object> row = detail(projectId, id);
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> steps = (List<Map<String, Object>>) row.get("steps");
+        List<Map<String, Object>> steps;
+        try {
+            steps = parseSteps(row.get("steps"));
+        } catch (Exception e) {
+            log.warn("ui steps parse failed: test={} error={}", id, e.getMessage());
+            Map<String, Object> failed = new LinkedHashMap<>();
+            failed.put("testId", id);
+            failed.put("testName", row.get("name"));
+            failed.put("verdict", "FAILED");
+            failed.put("durationMs", 0);
+            failed.put("steps", List.of());
+            failed.put("error", "步骤解析失败: " + e.getMessage());
+            persistResult(id, "FAILED", failed);
+            return failed;
+        }
 
         jdbc.update("UPDATE ui_test_case SET status = 'RUNNING', updated_at = now() WHERE id = ?", id);
 
@@ -179,7 +192,12 @@ public class UiTestService {
                 String sel = String.valueOf(step.getOrDefault("selector", ""));
                 String value = String.valueOf(step.getOrDefault("value", ""));
                 WebElement el = find(driver, sel);
-                el.clear();
+                // WebDriver.clear() 不触发 input 事件且 Ctrl+A 在 headless Chrome 下
+                // 不生效,Vue/React 的 v-model 预填值会与 sendKeys 叠加(如 admin→adminadmin)。
+                // 用 JS 置空并派发 input 事件让 v-model 同步,再键入。
+                el.click();
+                ((org.openqa.selenium.JavascriptExecutor) driver)
+                        .executeScript("arguments[0].value=''; arguments[0].dispatchEvent(new Event('input',{bubbles:true}))", el);
                 el.sendKeys(value);
                 r.put("selector", sel);
                 r.put("value", value);
@@ -218,6 +236,14 @@ public class UiTestService {
             }
         }
         return r;
+    }
+
+    /** pgjdbc 对 jsonb 列返回 PGobject（toString 即 JSON 文本），统一解析为步骤列表。 */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> parseSteps(Object raw) throws Exception {
+        if (raw == null) return List.of();
+        if (raw instanceof List<?> l) return (List<Map<String, Object>>) l;
+        return mapper.readValue(String.valueOf(raw), List.class);
     }
 
     private WebElement find(WebDriver driver, String selector) {

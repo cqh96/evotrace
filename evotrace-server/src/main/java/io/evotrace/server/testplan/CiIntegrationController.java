@@ -54,10 +54,11 @@ public class CiIntegrationController {
     @GetMapping("/projects/{projectKey}/ci/triggers")
     public Result<List<Map<String, Object>>> listTriggers(@PathVariable String projectKey) {
         return Result.ok(jdbc.queryForList("""
-                SELECT id, project_id AS "projectId", plan_id AS "planId", tp.name AS "planName",
-                       name, trigger_type AS "triggerType", enabled, created_by AS "createdBy",
-                       created_at AS "createdAt"
-                FROM ci_trigger WHERE project_id = ? ORDER BY id
+                SELECT ct.id, ct.project_id AS "projectId", ct.plan_id AS "planId", tp.name AS "planName",
+                       ct.name, ct.trigger_type AS "triggerType", ct.enabled, ct.created_by AS "createdBy",
+                       ct.created_at AS "createdAt"
+                FROM ci_trigger ct JOIN test_plan tp ON tp.id = ct.plan_id
+                WHERE ct.project_id = ? ORDER BY ct.id
                 """, projectId(projectKey)));
     }
 

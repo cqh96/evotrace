@@ -49,18 +49,19 @@ public class PerformanceTestService {
         return jdbc.queryForList("""
                 SELECT pt.id, pt.name, pt.endpoint_id AS "endpointId", e.method, e.path,
                        pt.concurrency, pt.duration_sec AS "durationSec", pt.status,
-                       pt.summary_json AS "summary", pt.created_at AS "createdAt"
+                       pt.base_url AS "baseUrl", pt.summary_json AS "summary", pt.created_at AS "createdAt"
                 FROM performance_test pt LEFT JOIN api_endpoint e ON e.id = pt.endpoint_id
                 WHERE pt.project_id = ? ORDER BY pt.created_at DESC
                 """, projectId);
     }
 
     @Transactional
-    public Long create(Long projectId, Long endpointId, String name, int concurrency, int durationSec) {
+    public Long create(Long projectId, Long endpointId, String name, int concurrency, int durationSec, String baseUrl) {
         return jdbc.queryForObject("""
-                INSERT INTO performance_test(project_id, endpoint_id, name, concurrency, duration_sec)
-                VALUES (?, ?, ?, ?, ?) RETURNING id
-                """, Long.class, projectId, endpointId, name, concurrency, durationSec);
+                INSERT INTO performance_test(project_id, endpoint_id, name, concurrency, duration_sec, base_url)
+                VALUES (?, ?, ?, ?, ?, ?) RETURNING id
+                """, Long.class, projectId, endpointId, name, concurrency, durationSec,
+                baseUrl == null || baseUrl.isBlank() ? null : baseUrl);
     }
 
     @Transactional
@@ -72,7 +73,7 @@ public class PerformanceTestService {
     public Map<String, Object> run(Long projectId, Long testId, String baseUrl) {
         Map<String, Object> row = jdbc.queryForMap("""
                 SELECT pt.id, pt.endpoint_id AS "endpointId", pt.concurrency, pt.duration_sec AS "durationSec",
-                       e.method, e.path, e.app_id AS "appId"
+                       pt.base_url AS "baseUrl", e.method, e.path, e.app_id AS "appId"
                 FROM performance_test pt JOIN api_endpoint e ON e.id = pt.endpoint_id
                 WHERE pt.id = ? AND pt.project_id = ?
                 """, testId, projectId);
@@ -83,7 +84,10 @@ public class PerformanceTestService {
         }
         String method = String.valueOf(row.get("method"));
         String path = String.valueOf(row.get("path"));
-        String base = (baseUrl != null && !baseUrl.isBlank()) ? baseUrl : appBaseUrl(ep.appId());
+        // 压测地址优先级:请求传入 > 任务创建时保存 > 应用配置的 base-url
+        String savedBase = row.get("baseUrl") == null ? null : String.valueOf(row.get("baseUrl"));
+        String effective = (baseUrl != null && !baseUrl.isBlank()) ? baseUrl : savedBase;
+        String base = (effective != null && !effective.isBlank()) ? effective : appBaseUrl(ep.appId());
         if (base == null || base.isBlank()) {
             throw new IllegalArgumentException("应用未配置 base-url，无法压测");
         }
