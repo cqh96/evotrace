@@ -37,6 +37,8 @@ const form = ref<Record<string, unknown>>({
 })
 const testing = ref(false)
 const testResult = ref('')
+const testingSsh = ref(false)
+const sshTestResult = ref('')
 
 function openCreate() {
   editing.value = null
@@ -69,6 +71,27 @@ async function saveConnection() {
     load()
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || '保存失败')
+  }
+}
+
+/** 仅测试 SSH 握手(用表单当前值,已保存连接的留空字段回退到库内配置)。 */
+async function testSshConnection() {
+  testingSsh.value = true
+  sshTestResult.value = ''
+  try {
+    const res = await sqlConsoleApi.testSsh({
+      id: editing.value?.id ?? null,
+      sshHost: form.value.sshHost,
+      sshPort: form.value.sshPort,
+      sshUser: form.value.sshUser,
+      sshPassword: form.value.sshPassword,
+      sshKeyPath: form.value.sshKeyPath
+    })
+    sshTestResult.value = `${res.ok ? '✅' : '❌'} ${res.message}(${res.elapsedMs}ms)`
+  } catch (e: any) {
+    sshTestResult.value = `❌ ${e?.response?.data?.message || '测试失败'}`
+  } finally {
+    testingSsh.value = false
   }
 }
 
@@ -278,10 +301,12 @@ onMounted(load)
           <el-form-item label="账号" required><el-input v-model="form.dbUser" placeholder="数据库账号" /></el-form-item>
           <el-form-item label="密码" required><el-input v-model="form.dbPassword" type="password" show-password :placeholder="editing?.hasDbPassword ? '留空保持不变' : '数据库密码'" /></el-form-item>
         </div>
+        <div v-if="sshTestResult" class="test-result ssh">{{ sshTestResult }}</div>
         <div v-if="testResult" class="test-result">{{ testResult }}</div>
       </el-form>
       <template #footer>
         <el-button @click="dialogOpen = false">取消</el-button>
+        <el-button :loading="testingSsh" @click="testSshConnection">测试 SSH</el-button>
         <el-button :loading="testing" @click="testConnection">测试连接</el-button>
         <el-button type="primary" @click="saveConnection">保存</el-button>
       </template>
@@ -387,6 +412,7 @@ onMounted(load)
 .form-row { display: flex; gap: 12px; }
 .form-row .el-form-item { flex: 1; }
 .test-result { font-size: 12.5px; margin-top: 4px; }
+.test-result.ssh { color: var(--et-text-secondary); font-family: ui-monospace, monospace; }
 
 .ops-btn {
   display: inline-flex; align-items: center; gap: 6px;

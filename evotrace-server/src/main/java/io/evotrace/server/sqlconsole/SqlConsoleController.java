@@ -56,6 +56,14 @@ public class SqlConsoleController {
         return Result.ok(service.test(id));
     }
 
+    /** 仅测试 SSH 握手(未保存的表单值直接传 body,已保存的连接传 id + 增量覆盖)。 */
+    @PostMapping("/test-ssh")
+    public Result<Map<String, Object>> testSsh(@RequestBody Map<String, Object> body) {
+        Object idRaw = body.remove("id");
+        Long id = idRaw instanceof Number n ? n.longValue() : null;
+        return Result.ok(service.testSsh(id, body));
+    }
+
     @PostMapping("/connections/{id}/execute")
     public Result<List<Map<String, Object>>> execute(@PathVariable Long id,
                                                      @RequestBody Map<String, Object> body) {

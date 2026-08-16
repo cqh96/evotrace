@@ -1203,6 +1203,8 @@ export const sqlConsoleApi = {
   remove: (id: number): Promise<void> => client.delete(`/sql-console/connections/${id}`),
   test: (id: number): Promise<{ ok: boolean; message: string; elapsedMs: number }> =>
     client.post(`/sql-console/connections/${id}/test`, null),
+  testSsh: (data: Record<string, unknown>): Promise<{ ok: boolean; message: string; elapsedMs: number }> =>
+    client.post('/sql-console/test-ssh', data),
   execute: (id: number, sql: string): Promise<SqlExecuteResult[]> =>
     client.post(`/sql-console/connections/${id}/execute`, { sql }, { timeout: 120000 })
 }

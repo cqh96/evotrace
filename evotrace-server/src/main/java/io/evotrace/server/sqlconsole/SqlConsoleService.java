@@ -109,6 +109,68 @@ public class SqlConsoleService {
 
     /* ==================== 测试与执行 ==================== */
 
+    /** 测试 SSH 握手:仅验证跳板可达与认证,不建隧道、不连数据库。
+     *  传 id 时用已保存配置,未保存的字段用 overrides 覆盖(留空不覆盖)。 */
+    public Map<String, Object> testSsh(Long id, Map<String, Object> overrides) {
+        long t0 = System.currentTimeMillis();
+        try {
+            Map<String, Object> cfg = new LinkedHashMap<>();
+            if (id != null) {
+                Map<String, Object> saved = jdbc.queryForMap("""
+                        SELECT ssh_host AS "sshHost", ssh_port AS "sshPort", ssh_user AS "sshUser",
+                               ssh_password AS "sshPassword", ssh_key_path AS "sshKeyPath"
+                        FROM sql_console_connection WHERE id = ?
+                        """, id);
+                cfg.putAll(saved);
+            }
+            if (overrides != null) {
+                for (Map.Entry<String, Object> e : overrides.entrySet()) {
+                    Object v = e.getValue();
+                    if (v != null && !String.valueOf(v).isBlank()) {
+                        cfg.put(e.getKey(), v);
+                    }
+                }
+            }
+            String host = cfg.get("sshHost") == null ? "" : String.valueOf(cfg.get("sshHost"));
+            if (host.isBlank()) {
+                throw new IllegalArgumentException("请填写 SSH 主机");
+            }
+            Session session = openSsh(cfg);
+            String user = String.valueOf(cfg.get("sshUser"));
+            String remoteVersion = session.getServerVersion();
+            session.disconnect();
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("ok", true);
+            out.put("message", "SSH 连接成功(" + user + "@" + host + ",服务端 " + remoteVersion + ")");
+            out.put("elapsedMs", System.currentTimeMillis() - t0);
+            return out;
+        } catch (Exception e) {
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("ok", false);
+            out.put("message", e.getMessage());
+            out.put("elapsedMs", System.currentTimeMillis() - t0);
+            return out;
+        }
+    }
+
+    /** 建立 SSH 会话(认证握手,不建隧道)。 */
+    private Session openSsh(Map<String, Object> cfg) throws Exception {
+        JSch jsch = new JSch();
+        if (cfg.get("sshKeyPath") != null && !String.valueOf(cfg.get("sshKeyPath")).isBlank()) {
+            jsch.addIdentity(String.valueOf(cfg.get("sshKeyPath")));
+        }
+        Session session = jsch.getSession(String.valueOf(cfg.get("sshUser")),
+                String.valueOf(cfg.get("sshHost")),
+                ((Number) cfg.get("sshPort")).intValue());
+        if (cfg.get("sshPassword") != null) {
+            session.setPassword(String.valueOf(cfg.get("sshPassword")));
+        }
+        session.setConfig("StrictHostKeyChecking", "no");
+        session.setConfig("PreferredAuthentications", "password,publickey,keyboard-interactive");
+        session.connect(SSH_CONNECT_TIMEOUT_MS);
+        return session;
+    }
+
     /** 测试连接:SSH 握手 + 数据库 SELECT 1。 */
     public Map<String, Object> test(Long id) {
         long t0 = System.currentTimeMillis();
@@ -236,19 +298,7 @@ public class SqlConsoleService {
             return cached;
         }
         tunnels.remove(id);
-        JSch jsch = new JSch();
-        if (cfg.get("sshKeyPath") != null && !String.valueOf(cfg.get("sshKeyPath")).isBlank()) {
-            jsch.addIdentity(String.valueOf(cfg.get("sshKeyPath")));
-        }
-        Session session = jsch.getSession(String.valueOf(cfg.get("sshUser")),
-                String.valueOf(cfg.get("sshHost")),
-                ((Number) cfg.get("sshPort")).intValue());
-        if (cfg.get("sshPassword") != null) {
-            session.setPassword(String.valueOf(cfg.get("sshPassword")));
-        }
-        session.setConfig("StrictHostKeyChecking", "no");
-        session.setConfig("PreferredAuthentications", "password,publickey,keyboard-interactive");
-        session.connect(SSH_CONNECT_TIMEOUT_MS);
+        Session session = openSsh(cfg);
         int localPort = session.setPortForwardingL("127.0.0.1", 0,
                 String.valueOf(cfg.get("dbHost")), ((Number) cfg.get("dbPort")).intValue());
         Tunnel t = new Tunnel(session, localPort);
