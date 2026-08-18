@@ -6,6 +6,12 @@ const client = axios.create({ baseURL: '/api/v1', timeout: 30000 })
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem('evotrace_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
+  // 空路径段(如 /projects//timeline)会被后端按未认证处理返回 401,
+  // 触发响应拦截器清 token 退出登录。无项目可读时直接拦下,提示用户先创建/选择项目。
+  const path = (config.url ?? '').split('?')[0]
+  if (path.includes('//')) {
+    return Promise.reject(new Error('请先在左上角选择或创建项目'))
+  }
   return config
 })
 
